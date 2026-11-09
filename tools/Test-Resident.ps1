@@ -16,34 +16,34 @@ function Wait-Until([scriptblock]$Condition) {
 $AppFolder = [IO.Path]::GetFullPath($AppFolder)
 $profileFolder = Join-Path $AppFolder 'resident-test-profile'
 New-Item -ItemType Directory -Force -Path $profileFolder | Out-Null
-$originalProfile = $env:ASNAPDO_DATA_DIR
-$env:ASNAPDO_DATA_DIR = $profileFolder
+$originalProfile = $env:DIMPIK_DATA_DIR
+$env:DIMPIK_DATA_DIR = $profileFolder
 $trayProcess = $null
 try {
-    if ([ResidentWindow]::FindWindow('ASnapdo.Tray', 'ASnapdo') -ne [IntPtr]::Zero) { throw 'Exit the running ASnapdo tray before this isolated test.' }
-    & dotnet run --project "$PSScriptRoot\..\tests\ASnapdo.Smoke\ASnapdo.Smoke.csproj" -c Release --no-restore -- --session-fixture "$profileFolder\session.json"
+    if ([ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK') -ne [IntPtr]::Zero) { throw 'Exit the running DIMPIK tray before this isolated test.' }
+    & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-restore -- --session-fixture "$profileFolder\session.json"
     if ($LASTEXITCODE -ne 0) { throw 'Session fixture creation failed.' }
     '{"ShowGallery":true}' | Set-Content -LiteralPath "$profileFolder\settings.json" -Encoding UTF8
-    $trayProcess = Start-Process -FilePath "$AppFolder\ASnapdo.exe" -ArgumentList '--background' -WindowStyle Hidden -PassThru
+    $trayProcess = Start-Process -FilePath "$AppFolder\DIMPIK.exe" -ArgumentList '--background' -WindowStyle Hidden -PassThru
     Write-Output 'Waiting for native tray window...'
-    Wait-Until { [ResidentWindow]::FindWindow('ASnapdo.Tray', 'ASnapdo') -ne [IntPtr]::Zero }
-    $trayWindow = [ResidentWindow]::FindWindow('ASnapdo.Tray', 'ASnapdo')
+    Wait-Until { [ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK') -ne [IntPtr]::Zero }
+    $trayWindow = [ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK')
     $measurements = @()
     foreach ($cycle in 0..2) {
         if ($cycle -gt 0) {
             Write-Output "Opening editor, cycle $cycle..."
             [void][ResidentWindow]::PostMessage($trayWindow, 0x8001, [IntPtr]::Zero, [IntPtr]::Zero)
-            Wait-Until { @(Get-Process ASnapdo -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$AppFolder\editor\ASnapdo.exe" -and $_.MainWindowHandle -ne [IntPtr]::Zero }).Count -eq 1 }
-            $editor = Get-Process ASnapdo | Where-Object { $_.Path -eq "$AppFolder\editor\ASnapdo.exe" }
+            Wait-Until { @(Get-Process DIMPIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$AppFolder\editor\DIMPIK.exe" -and $_.MainWindowHandle -ne [IntPtr]::Zero }).Count -eq 1 }
+            $editor = Get-Process DIMPIK | Where-Object { $_.Path -eq "$AppFolder\editor\DIMPIK.exe" }
             Write-Output "Closing editor PID $($editor.Id)..."
             Start-Sleep -Seconds 1
             [void][ResidentWindow]::PostMessage($editor.MainWindowHandle, 0x10, [IntPtr]::Zero, [IntPtr]::Zero)
             Wait-Until { $editor.Refresh(); $editor.HasExited }
-            & dotnet run --project "$PSScriptRoot\..\tests\ASnapdo.Smoke\ASnapdo.Smoke.csproj" -c Release --no-build -- --session-verify "$profileFolder\session.json"
+            & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-build -- --session-verify "$profileFolder\session.json"
             if ($LASTEXITCODE -ne 0) { throw 'Encrypted session verification failed.' }
         }
         Start-Sleep -Seconds 2
-        $related = @(Get-Process ASnapdo -ErrorAction SilentlyContinue | Where-Object { $_.Path.StartsWith($AppFolder, [StringComparison]::OrdinalIgnoreCase) })
+        $related = @(Get-Process DIMPIK -ErrorAction SilentlyContinue | Where-Object { $_.Path.StartsWith($AppFolder, [StringComparison]::OrdinalIgnoreCase) })
         $working = ($related | Measure-Object WorkingSet64 -Sum).Sum
         $private = ($related | Measure-Object PrivateMemorySize64 -Sum).Sum
         $measurements += [pscustomobject]@{ Cycle=$cycle; Processes=$related.Count; WorkingSetMB=[math]::Round($working/1MB,2); PrivateMB=[math]::Round($private/1MB,2) }
@@ -59,6 +59,6 @@ try {
     Write-Output 'PASS: native-only idle below 10,000,000 bytes, two editor open/close cycles, session preservation and exit during editor startup.'
 } finally {
     if ($trayProcess -and -not $trayProcess.HasExited) { Stop-Process -Id $trayProcess.Id }
-    Get-Process ASnapdo -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$AppFolder\editor\ASnapdo.exe" } | Stop-Process
-    $env:ASNAPDO_DATA_DIR = $originalProfile
+    Get-Process DIMPIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$AppFolder\editor\DIMPIK.exe" } | Stop-Process
+    $env:DIMPIK_DATA_DIR = $originalProfile
 }

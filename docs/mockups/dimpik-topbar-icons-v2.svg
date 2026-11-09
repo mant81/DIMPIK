@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1365" height="50" viewBox="0 0 1365 50" role="img" aria-labelledby="title desc">
+  <title id="title">DIMPIK 상단 명령줄 아이콘 목업</title>
+  <desc id="desc">첨부된 DIMPIK UI 목업을 기준으로 만든 벡터 시안이며 실제 실행 화면이 아닙니다.</desc>
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eaf4ff"/>
+      <stop offset="1" stop-color="#dbeaff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1365" height="50" fill="url(#bar)"/>
+  <path d="M0 49.5H1365" stroke="#c9d9ed"/>
+  <g fill="#111827" font-family="Segoe UI, Malgun Gothic, sans-serif" font-size="19" font-weight="500">
+    <text x="27" y="32">파일</text><text x="91" y="32">편집</text><text x="156" y="32">보기</text>
+  </g>
+  <g fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M215 11v28" stroke="#b6c8dc" stroke-width="1"/>
+    <!-- Save -->
+    <g transform="translate(231 14)">
+      <path d="M3 1.8h11.2L17.8 5v16.2H2.2V2.6c0-.5.3-.8.8-.8Z"/>
+      <path d="M6 2v6h8V2M5.5 21v-8h9v8"/>
+    </g>
+    <!-- Export / share -->
+    <g transform="translate(293 14)">
+      <path d="M12.5 5H19v6.5M18.5 5.5l-8 8"/>
+      <path d="M16 13.5v5.2c0 .8-.6 1.3-1.4 1.3H3.5c-.8 0-1.3-.5-1.3-1.3V7.5c0-.8.5-1.3 1.3-1.3h5.2"/>
+    </g>
+    <path d="M350 11v28" stroke="#b6c8dc" stroke-width="1"/>
+    <!-- Undo -->
+    <g transform="translate(367 14)">
+      <path d="M8 5 3 10l5 5"/>
+      <path d="M4 10h8.2a5.8 5.8 0 0 1 0 11.6h-2.8" transform="translate(0 -3)"/>
+    </g>
+    <!-- Redo -->
+    <g transform="translate(415 14)">
+      <path d="m12 5 5 5-5 5"/>
+      <path d="M16 10H7.8a5.8 5.8 0 0 0 0 11.6h2.8" transform="translate(0 -3)"/>
+    </g>
+    <!-- Settings -->
+    <g transform="translate(1328 14)">
+      <path d="M10 1.6v2.2M10 16.2v2.2M18.4 10h-2.2M3.8 10H1.6M15.95 4.05 14.4 5.6M5.6 14.4l-1.55 1.55M15.95 15.95 14.4 14.4M5.6 5.6 4.05 4.05"/>
+      <circle cx="10" cy="10" r="5.5"/>
+      <circle cx="10" cy="10" r="2"/>
+    </g>
+  </g>
+</svg>

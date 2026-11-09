@@ -1,10 +1,10 @@
-# ASnapdo
+# DIMPIK
 
-[설치 파일 다운로드](https://github.com/mant81/ASnapdo/releases/tag/v1.0.3) · [릴리즈 이력](CHANGELOG.md)
+[최신 설치 파일 다운로드](https://github.com/mant81/DIMPIK/releases/latest) · [릴리즈 이력](CHANGELOG.md)
 
 Windows 10/11용 화면 캡처 및 주석 편집기의 개발 기반입니다. .NET 10 / WinForms를 사용하며 SDK `10.0.403`을 기준으로 합니다.
 
-문서만 있던 폴더에 신규 소스를 추가했습니다. 기존 ACapdo v0.8 소스는 제공되지 않았으므로 기존 기능 보존 및 이름 마이그레이션 완료를 의미하지 않습니다. SDK 10.0.403으로 빌드·게시 및 합성 이미지를 이용한 Windows UI 검사를 수행했습니다. 검증 범위는 아래 결과 문서를 참고하세요.
+기존 캡처 편집기를 DIMPIK 브랜드와 새 UI 셸로 전환했습니다. C# WinForms 캡처·편집 엔진은 유지하고 상단/좌측 도구 배치, 도구 옵션 flyout, DIMPIK 로고와 탭 중심 레이아웃을 적용했습니다. SDK 10.0.403에서 Release 빌드와 Windows smoke 검사를 통과했습니다. 네이티브 트레이와 설치 프로그램도 다시 빌드했습니다.
 
 ## 빌드
 
@@ -13,14 +13,14 @@ Windows 10/11용 화면 캡처 및 주석 편집기의 개발 기반입니다. .
 [Windows x64용 .NET SDK 10.0.403 다운로드](https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.403/dotnet-sdk-10.0.403-win-x64.exe)
 
 ```powershell
-dotnet build src/ASnapdo/ASnapdo.csproj -c Release
+dotnet build src/DIMPIK/DIMPIK.csproj -c Release
 .\build-exe.cmd
 powershell -NoProfile -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-설치 파일: `release\setup\asnapdo_inst_x64_1.0.3.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
+설치 파일: `release\setup\dimpik_inst_x64_1.0.4.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
 
-설치형은 `ASnapdo.exe`(약 20KB 네이티브 트레이 상주부)와 `editor\ASnapdo.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\ASnapdo.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\ASnapdo이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
+설치형은 `DIMPIK.exe`(약 20KB 네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
 
 배포 시 버전과 `CHANGELOG.md`를 갱신하고 설치 파일을 빌드한 뒤 소스를 커밋·푸시합니다. 이후 아래 명령으로 GitHub Release를 만듭니다. 현재 변경 이력과 GitHub 자동 릴리즈 노트가 포함되며, 설치 파일 업로드 검증 후 공개됩니다. 인증은 `GH_TOKEN`/`GITHUB_TOKEN` 또는 Git 자격 증명 관리자를 사용합니다.
 
@@ -30,15 +30,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 
 설치 시 또는 **설정 → 일반 → Windows 로그인 시 자동 실행**에서 로그인 자동 실행을 켤 수 있습니다. 설치 화면에서는 기본 체크 상태이며 사용자가 해제할 수 있습니다. 자동 실행은 트레이에서 조용히 시작합니다.
 
-트레이 대기 시 .NET 편집기를 종료하여 네이티브 프로세스 하나만 유지합니다. 창 X로 닫으면 탭·이미지·주석·Undo·배율·스크롤을 `%LOCALAPPDATA%\ASnapdo\session.json`에 보관하고 다음 열기에서 복원합니다. 트레이 종료는 저장 확인 없이 세션을 버립니다. 세션 보관 실패 시 편집 창이 유지됩니다.
+트레이 대기 시 .NET 편집기를 종료하여 네이티브 프로세스 하나만 유지합니다. 창 X로 닫으면 탭·이미지·주석·Undo·배율·스크롤을 `%LOCALAPPDATA%\DIMPIK\session.json`에 보관하고 다음 열기에서 복원합니다. 트레이 종료는 저장 확인 없이 세션을 버립니다. 세션 보관 실패 시 편집 창이 유지됩니다.
 
 메모리 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Resident.ps1`. 현재 Windows 환경에서 대기 상태 합계 작업 집합 8.48~8.65MiB, 전용 커밋 1.36MiB를 측정했습니다. 검증은 프로세스가 하나인지, 작업 집합과 전용 커밋이 각각 10,000,000바이트 미만인지 확인합니다. 캡처·편집 중 메모리는 이 제한 대상이 아닙니다. 상세 검증은 [docs/INSTALLER_TEST_RESULTS.md](docs/INSTALLER_TEST_RESULTS.md)를 참고하세요.
 
-앱 아이콘은 `src/ASnapdo/Assets/ASnapdo.ico`에 포함되어 실행 파일, 창 제목, 작업 표시줄과 트레이에 사용됩니다. 헤더의 독자 벡터 마크에서 다시 만들려면 `dotnet run --project tools/ASnapdo.IconBuilder/ASnapdo.IconBuilder.csproj -c Release`를 실행합니다.
+앱 아이콘은 `src/DIMPIK/Assets/DIMPIK.ico`에 포함되어 실행 파일, 창 제목, 작업 표시줄과 트레이에 사용됩니다. 헤더의 독자 벡터 마크에서 다시 만들려면 `dotnet run --project tools/DIMPIK.IconBuilder/DIMPIK.IconBuilder.csproj -c Release`를 실행합니다.
 
 ## 추가된 기반
 
-- 상단 작업·도구·속성, 창 전체 폭의 독립 탭과 캔버스, 하단 상태/배율
+- 로고 헤더, 상단 명령줄, 반응형 도구줄, 도구 옵션 flyout, 독립 탭과 캔버스, 하단 상태/배율
 - 영역 캡처 및 마우스가 있는 모니터 전체 캡처
 - 영역 선택 시 십자·경계 가이드, 가로×세로 픽셀/좌표, 커서 주변 확대와 색상값 표시. Shift 정사각형, Esc/우클릭 취소. 선택 시작 시 화면을 고정하며 결과에는 가이드가 포함되지 않음
 - 전역 단축키 설정/충돌 안내, 조용한 트레이 이동
@@ -54,7 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 - Ctrl+휠 확대, Ctrl+0 맞춤, 스크롤 탐색
 - 새 캡처와 이미지 열기는 기본 100% 배율. 큰 이미지는 스크롤로 탐색하며, 필요할 때 맞춤 버튼 또는 Ctrl+0 사용
 
-설정은 `%LOCALAPPDATA%\ASnapdo\settings.json`에 저장합니다. 새 설정이 없으면 기존 ACapdo 설정 파일을 원본 수정 없이 복사합니다. 기존 스키마 호환성은 미검증이며 저장 전 .bak 백업을 만듭니다.
+설정과 세션은 `%LOCALAPPDATA%\DIMPIK`에 저장합니다. 처음 실행할 때 기존 ASnapdo 또는 ACapdo의 `settings.json`과 암호화된 `session.json`을 새 폴더로 복사합니다. 원본은 삭제하거나 변경하지 않습니다. 저장 전 `.bak` 백업을 만듭니다.
 
 **모자이크·블러:** 도구를 선택하고 캔버스에서 영역을 드래그합니다. 미리보기를 보며 강도를 조절한 뒤 Enter 또는 적용 버튼으로 확정하고, Esc로 취소합니다. Ctrl+Z로 적용을 되돌릴 수 있습니다. 효과는 주석을 포함한 합성 영역에 적용되며 PNG 저장과 이미지 복사에 반영됩니다.
 
@@ -62,7 +62,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 
 실제 검증 결과 및 제한은 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)를 참고하세요. 제품 기준은 PRODUCT_SPEC.md입니다.
 
-창 X 아래 우측 상단의 아이콘이 있는 **설정 | 도움말**에서 설정과 도움말을 엽니다. 설정은 **캡처 / 단축키 / 저장 / 일반** 탭으로 나누며 하단 **변경 저장**으로 적용합니다. 설정 창이 열려 있는 동안 캡처 단축키는 실행되지 않습니다. 도움말은 라이선스 정책, 주요 기능, 현재 버전과 수동 업데이트 안내를 제공합니다. 개인·기업·관공서 모두 무료로 사용할 수 있으며 제작사는 AAStudio.kr입니다. MIT 오픈소스 라이선스 원문은 LICENSE.txt에 있고 설치 화면과 도움말에도 동일하게 표시합니다. 공식 배포 채널은 아직 미확정입니다. 제품의 한글명은 **에이스냅두**입니다.
+창 우측 상단의 **설정 | 도움말**에서 설정과 도움말을 엽니다. 설정은 **캡처 / 단축키 / 저장 / 일반** 탭으로 나누며 하단 **변경 저장**으로 적용합니다. 설정 창이 열려 있는 동안 캡처 단축키는 실행되지 않습니다. 도움말은 라이선스 정책, 주요 기능, 현재 버전과 수동 업데이트 안내를 제공합니다. 개인·기업·관공서 모두 무료로 사용할 수 있으며 제작사는 AAStudio.kr입니다. MIT 오픈소스 라이선스 원문은 LICENSE.txt에 있고 설치 화면과 도움말에도 동일하게 표시합니다. 제품의 한글명은 **딤픽**이며 표어는 **Capture · Edit · Share**입니다.
 # 캡처 영역을 다른 탭에 붙여넣기
 
 캡처 탭의 위쪽·왼쪽 줄자에서 이미지 기준 픽셀 좌표를 확인할 수 있습니다. 눈금은 확대·축소와 스크롤을 따라가며 저장·복사 이미지에는 포함되지 않습니다.
@@ -81,15 +81,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 
 See [code signing and SmartScreen](docs/CODE_SIGNING.md) for signed release builds. Use build-installer.ps1 -CertificateThumbprint with a trusted code signing certificate. Unsigned builds may display a SmartScreen warning.
 
-설치 완료 시 실행 선택 체크박스 없이 원래 사용자 권한으로 ASnapdo를 트레이에서 자동 실행합니다. 편집 창은 열지 않습니다. 무인 설치에서는 실행하지 않습니다. Windows 로그인 시 자동 실행은 별도의 선택 설정으로 유지합니다.
+설치 완료 시 실행 선택 체크박스 없이 원래 사용자 권한으로 DIMPIK를 트레이에서 자동 실행합니다. 편집 창은 열지 않습니다. 무인 설치에서는 실행하지 않습니다. Windows 로그인 시 자동 실행은 별도의 선택 설정으로 유지합니다.
 
 보안 점검 및 제한은 [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)를 참고하세요. 창 X로 보관한 세션의 원본·주석·실행 취소 이력은 현재 Windows 사용자 계정의 DPAPI로 암호화합니다. 기존 평문 세션은 검증 후 자동 변환하며 같은 계정 권한의 프로그램까지 차단하지는 못합니다. 세션 파일은 다른 계정/PC에서 복원되지 않을 수 있으므로 공유하지 마세요. 트레이 종료 시 파일을 삭제하지만 보안 삭제를 보장하지 않습니다.
 
-세션은 128MiB·128개 탭·문서별 Undo 256개와 주석 2,048개를 지원합니다. 이미지 파일은 64MiB·6,400만 픽셀·한 변 32,768픽셀까지 허용하며 PNG/JPEG/BMP 헤더를 디코딩 전에 검사합니다. 제한 초과 시 오류를 안내하고 기존 편집 상태를 유지합니다. 보안 회귀 검사는 `dotnet run --project tests/ASnapdo.Smoke -c Release -- --security-test`, 실제 암호화 세션 생명주기 검사는 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-SessionLifecycle.ps1`입니다. 대기 메모리는 현재 약 11MB로 기존 목표인 10MB를 초과합니다.
+세션은 128MiB·128개 탭·문서별 Undo/Redo 각각 최대 256개와 주석 2,048개를 지원합니다. 이미지 파일은 64MiB·6,400만 픽셀·한 변 32,768픽셀까지 허용하며 PNG/JPEG/BMP 헤더를 디코딩 전에 검사합니다. 제한 초과 시 오류를 안내하고 기존 편집 상태를 유지합니다. 보안 회귀 검사는 `dotnet run --project tests/DIMPIK.Smoke -c Release -- --security-test`, 실제 암호화 세션 생명주기 검사는 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-SessionLifecycle.ps1`입니다. 대기 메모리는 현재 약 11MB로 기존 목표인 10MB를 초과합니다.
 
 ## 오픈소스 라이선스
 
-ASnapdo의 소스 코드와 문서는 [MIT License](LICENSE.txt)로 제공합니다.
+DIMPIK의 소스 코드와 문서는 [MIT License](LICENSE.txt)로 제공합니다.
 개인·기업·공공기관에서 무료로 사용하고 수정·재배포·상업적으로 이용할 수 있습니다.
 복제본이나 소프트웨어의 상당 부분에는 저작권 표시와 MIT 라이선스 고지를 포함해야 합니다.
 제3자 구성 요소에는 각 구성 요소의 라이선스가 적용됩니다.

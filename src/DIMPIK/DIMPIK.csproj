@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DIMPIK</AssemblyName>
+    <RootNamespace>DIMPIK</RootNamespace>
+    <Company>AAStudio.kr</Company>
+    <Product>DIMPIK</Product>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>1.0.4</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <ApplicationIcon>Assets/DIMPIK.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/DIMPIK.ico" />
+    <EmbeddedResource Include="Assets/MenuIcons/*.png" />
+    <EmbeddedResource Include="../../LICENSE.txt" LogicalName="DIMPIK.License.txt" />
+  </ItemGroup>
+</Project>

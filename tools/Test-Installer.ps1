@@ -1,7 +1,7 @@
-﻿param([string]$Package = "")
+param([string]$Package = "")
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath("$PSScriptRoot\..")
-if (-not $Package) { $Package = "$root\release\install-smoke-package\ASnapdo-Setup-Smoke.exe" }
+if (-not $Package) { $Package = "$root\release\install-smoke-package\DIMPIK-Setup-Smoke.exe" }
 $destination = "$root\release\install-smoke-app"
 $log = "$root\release\install-smoke-package\install.log"
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -10,13 +10,13 @@ try {
     foreach ($round in 1..2) {
         $setup = Start-Process -FilePath $package -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER','/NOICONS',"/DIR=$destination","/LOG=$log" -WindowStyle Hidden -PassThru -Wait
         if ($setup.ExitCode -ne 0) { throw "Installer returned $($setup.ExitCode)" }
-        if (-not (Test-Path -LiteralPath "$destination\ASnapdo.exe") -or -not (Test-Path -LiteralPath "$destination\editor\ASnapdo.dll")) { throw 'Installed launcher/editor files are missing.' }
+        if (-not (Test-Path -LiteralPath "$destination\DIMPIK.exe") -or -not (Test-Path -LiteralPath "$destination\editor\DIMPIK.dll")) { throw 'Installed launcher/editor files are missing.' }
         $license = Get-Content -LiteralPath "$destination\LICENSE.txt" -Raw -Encoding UTF8
         if (-not $license.Contains('MIT License') -or -not $license.Contains('AAStudio.kr')) { throw 'Installed license is missing the MIT license or publisher.' }
-        if ([Diagnostics.FileVersionInfo]::GetVersionInfo("$destination\ASnapdo.exe").CompanyName -ne 'AAStudio.kr') { throw 'Launcher publisher is incorrect.' }
+        if ([Diagnostics.FileVersionInfo]::GetVersionInfo("$destination\DIMPIK.exe").CompanyName -ne 'AAStudio.kr') { throw 'Launcher publisher is incorrect.' }
         if (Get-ChildItem -LiteralPath $destination -Filter '*.pdb' -Recurse) { throw 'Debug symbols were installed.' }
-        $startup = (Get-ItemProperty -LiteralPath $runKey).'ASnapdo-InstallSmoke'
-        if ($startup -ne "`"$destination\ASnapdo.exe`" --background") { throw 'Startup command is incorrect.' }
+        $startup = (Get-ItemProperty -LiteralPath $runKey).'DIMPIK-InstallSmoke'
+        if ($startup -ne "`"$destination\DIMPIK.exe`" --background") { throw 'Startup command is incorrect.' }
         Write-Output "PASS: install round $round, separate EXE/DLL, optional startup registration, no PDB."
     }
 } finally {
@@ -24,9 +24,9 @@ try {
         $uninstall = Start-Process -FilePath "$destination\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -WindowStyle Hidden -PassThru -Wait
         if ($uninstall.ExitCode -ne 0) { throw "Uninstaller returned $($uninstall.ExitCode)" }
         $until = [DateTime]::UtcNow.AddSeconds(10)
-        while ((Test-Path -LiteralPath "$destination\ASnapdo.exe") -and [DateTime]::UtcNow -lt $until) { Start-Sleep -Milliseconds 100 }
-        if (Test-Path -LiteralPath "$destination\ASnapdo.exe") { throw 'Uninstall left the launcher.' }
-        if ((Get-ItemProperty -LiteralPath $runKey -ErrorAction SilentlyContinue).'ASnapdo-InstallSmoke') { throw 'Uninstall left startup registration.' }
+        while ((Test-Path -LiteralPath "$destination\DIMPIK.exe") -and [DateTime]::UtcNow -lt $until) { Start-Sleep -Milliseconds 100 }
+        if (Test-Path -LiteralPath "$destination\DIMPIK.exe") { throw 'Uninstall left the launcher.' }
+        if ((Get-ItemProperty -LiteralPath $runKey -ErrorAction SilentlyContinue).'DIMPIK-InstallSmoke') { throw 'Uninstall left startup registration.' }
         Write-Output 'PASS: uninstall removed program and test startup entry.'
     }
 }

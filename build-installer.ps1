@@ -1,6 +1,6 @@
 param(
     [string]$Compiler = "$PSScriptRoot\tools\vendor\InnoSetup\ISCC.exe",
-    [string]$CertificateThumbprint = $env:ASNAPDO_SIGNING_THUMBPRINT,
+    [string]$CertificateThumbprint = $env:DIMPIK_SIGNING_THUMBPRINT,
     [string]$SignTool,
     [string]$TimestampUrl = 'http://timestamp.digicert.com',
     [switch]$MachineCertificateStore
@@ -44,13 +44,14 @@ try {
     & "$PSScriptRoot\build-exe.cmd"
     if ($LASTEXITCODE -ne 0) { throw 'Editor publish failed.' }
     if ($CertificateThumbprint) {
-        foreach ($file in @('release\app\ASnapdo.exe', 'release\app\editor\ASnapdo.exe', 'release\app\editor\ASnapdo.dll')) {
+        foreach ($file in @('release\app\DIMPIK.exe', 'release\app\editor\DIMPIK.exe', 'release\app\editor\DIMPIK.dll')) {
             Sign-ReleaseFile (Join-Path $PSScriptRoot $file)
         }
     }
-    & $Compiler /Q installer/ASnapdo.iss
+    & $Compiler /Q installer/DIMPIK.iss
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
     if ($CertificateThumbprint) {
-        Sign-ReleaseFile (Join-Path $PSScriptRoot 'release\setup\asnapdo_inst_x64_1.0.3.exe')
+        $projectVersion = [string]([xml](Get-Content (Join-Path $PSScriptRoot 'src/DIMPIK/DIMPIK.csproj') -Raw)).Project.PropertyGroup.Version
+        Sign-ReleaseFile (Join-Path $PSScriptRoot "release\setup\dimpik_inst_x64_$projectVersion.exe")
     }
 } finally { Pop-Location }

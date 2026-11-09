@@ -12,7 +12,7 @@ fs.mkdirSync(output, { recursive:true });
 (async () => {
   const browser = await chromium.launch({ headless:true, executablePath:process.env.CHROMIUM_PATH });
   const context = await browser.newContext({ acceptDownloads:true });
-  const pages = ['/', '/asnapdo/', '/asnapdo/changelog/'];
+  const pages = ['/', '/dimpik/', '/dimpik/changelog/'];
   const viewports = [{name:'desktop',width:1440,height:1000},{name:'tablet',width:900,height:1000},{name:'mobile',width:390,height:844}];
   const errors = []; const links = new Set(); const results = [];
   await context.route('https://fonts.googleapis.com/**', route => route.abort());
@@ -34,7 +34,7 @@ fs.mkdirSync(output, { recursive:true });
         const anchors = await page.locator('a[href]').evaluateAll(anchors => anchors.map(anchor => anchor.href));
         anchors.filter(href => href.startsWith(base)).forEach(href => links.add(href));
         if (viewport.name !== 'tablet') {
-          const filename = route === '/' ? 'home' : route.includes('changelog') ? 'asnapdo-changelog' : 'asnapdo-features';
+          const filename = route === '/' ? 'home' : route.includes('changelog') ? 'dimpik-changelog' : 'dimpik-features';
           await page.screenshot({ path:path.join(output,`${filename}-${viewport.name}.png`),fullPage:true,animations:'disabled' });
         }
         results.push(`${route} @ ${viewport.width}px`);
@@ -52,12 +52,12 @@ fs.mkdirSync(output, { recursive:true });
         assert.equal(response.status(),200,`Broken link ${href}`);
       }
     }
-    const metadata = JSON.parse(fs.readFileSync(path.join(site,'release','asnapdo-1.0.3.json'),'utf8'));
-    assert.equal(metadata.version,'1.0.3');
-    assert.equal(metadata.installDirectory,path.win32.join('C:/','Program Files','ASnapdo'));
-    await page.goto(base + '/asnapdo/');
+    const metadata = JSON.parse(fs.readFileSync(path.join(site,'release','dimpik-1.0.4.json'),'utf8'));
+    assert.equal(metadata.version,'1.0.4');
+    assert.equal(metadata.installDirectory,path.win32.join('C:/','Program Files','DIMPIK'));
+    await page.goto(base + '/dimpik/');
     const [download] = await Promise.all([page.waitForEvent('download'),page.locator('a[download]').first().click()]);
-    assert.equal(download.suggestedFilename(),'asnapdo_inst_x64_1.0.3.exe');
+    assert.equal(download.suggestedFilename(),'dimpik_inst_x64_1.0.4.exe');
     const file = fs.readFileSync(await download.path());
     assert.equal(crypto.createHash('sha256').update(file).digest('hex'),metadata.sha256);
     assert.equal(file.length,metadata.sizeBytes);
