@@ -1,23 +1,23 @@
-# Codex Agent Instructions — ASnapdo
+# Codex Agent Instructions — DIMPIK
 
 Read **`PRODUCT_SPEC.md`** before changing code. That file is the source of truth for product decisions and acceptance criteria.
 
 ## Mission
 
-Maintain and improve **ASnapdo**, a Windows 10/11 screen capture and annotation editor. Deliver a stable, professional, minimalist, **original** Windows UI with multi-tab capture and rich annotation workflows.
+Maintain and improve **DIMPIK (딤픽)**, the renamed Windows 10/11 screen capture and annotation editor. Deliver a stable, professional, minimalist, **original** Windows UI with multi-tab capture and rich annotation workflows.
 
 ## Naming migration (first task)
 
-Current implementation originated as **ACapdo v0.8**. Rename identifiers and assets to ASnapdo consistently (assembly, root namespace, filenames, publish scripts, app data path, title, log prefix and documentation) while preserving user settings through a deliberate migration. Do not consider the rename completed solely because these documents use the new name.
+Current implementation originated as **ACapdo v0.8**, then ASnapdo. Rename identifiers and assets to DIMPIK consistently (assembly, root namespace, filenames, publish scripts, app data path, title, log prefix and documentation) while preserving ACapdo and ASnapdo user settings and sessions through a deliberate migration. Keep encrypted session compatibility and migrate the existing auto-start entry. Do not consider the rename completed solely because these documents use the new name.
 
 ## Repository baseline
 
 - C# / .NET 8 / Windows Forms (initial v0.8 source).
-- Project file: `src/ASnapdo/ASnapdo.csproj`.
-- Build: `dotnet build src/ASnapdo/ASnapdo.csproj -c Release` on Windows.
-- Publish: run `build-exe.cmd` on Windows; output `release\app\ASnapdo.exe` (native resident launcher) and `release\app\editor\` (editor EXE/DLL). Build the installer with `build-installer.ps1`; output `release\setup\asnapdo_inst_x64_1.0.0.exe`. Default installation is Program Files\ASnapdo and requires administrator approval. See PRODUCT_SPEC.md for the idle memory budget and session lifecycle.
+- Project file: `src/DIMPIK/DIMPIK.csproj`.
+- Build: `dotnet build src/DIMPIK/DIMPIK.csproj -c Release` on Windows.
+- Publish: run `build-exe.cmd` on Windows; output `release\app\DIMPIK.exe` (native resident launcher) and `release\app\editor\` (editor EXE/DLL). Build the installer with `build-installer.ps1`; output `release\setup\dimpik_inst_x64_1.0.4.exe`. Default installation is Program Files\DIMPIK and requires administrator approval. See PRODUCT_SPEC.md for the idle memory budget and session lifecycle.
 - Visual reference: `docs/design/ui-concept-reference.png` (concept, not an actual application screenshot).
-- Original source has **not been verified by Windows compilation/runtime tests**. Verify before claiming success.
+- The DIMPIK editor was built and smoke-tested on Windows on 2026-11-08. Native tray and installer artifacts still require rebuild and validation before release.
 
 ## Non-negotiable functional requirements
 
@@ -29,13 +29,13 @@ Current implementation originated as **ACapdo v0.8**. Rename identifiers and ass
 6. `Ctrl+mouse wheel` zooms the editor; fit to screen via Ctrl+0.
 7. Tray minimize is quiet: **no large/repeated balloon notifications**; at most a discreet one-time message. Closing the window should not silently terminate the tray-resident app; tray Exit really exits.
 8. Recent thumbnail/gallery strip remains hidden by default and optional.
-9. Preserve capture/editor feature set and use the ASnapdo name. Publisher/company is AAStudio.kr. The license is free for individuals, businesses and public institutions; LICENSE.txt is the shared installer/help license text. Keep the compact app header as icon + ASnapdo.
+9. Preserve capture/editor feature set and use the DIMPIK name. Publisher/company is AAStudio.kr. The license is free for individuals, businesses and public institutions; LICENSE.txt is the shared installer/help license text. Keep the compact app header as logo + 딤픽 DIMPIK; use the tagline “Capture · Edit · Share”.
 
 ## UI rules
 
 - Independent layout: top compact actions, document tabs, narrow left tools, dominant central canvas, contextual right inspector, slim bottom status bar.
 - Visually clean and premium: whitespace, consistent spacing, restrained blue `#2563EB`, soft neutrals, minimal decoration.
-- Use ASnapdo's original layouts, interaction patterns, and icons. Do not copy proprietary assets.
+- Use DIMPIK's original layouts, interaction patterns, and icons. Do not copy proprietary assets.
 - Choose WinForms incremental improvement or staged WPF shell migration based on regression risk; explain the choice. Never discard working functionality merely for a UI rewrite.
 - Design must work at Windows 125%, 150%, 200% DPI and narrow widths.
 
@@ -52,7 +52,7 @@ Current implementation originated as **ACapdo v0.8**. Rename identifiers and ass
 
 ## Release and deployment rules
 
-- Every deployment must create a versioned GitHub Release in `mant81/ASnapdo` and attach the matching Windows installer (`asnapdo_inst_x64_<version>.exe`). A source-only tag or release is not a completed deployment.
+- Every deployment must create a versioned GitHub Release in `mant81/DIMPIK` and attach the matching Windows installer (`dimpik_inst_x64_<version>.exe`). A source-only tag or release is not a completed deployment.
 - Automatically include the current version's `CHANGELOG.md` section and GitHub-generated release notes. Use `publish-release.ps1` after building the installer and committing/pushing the release source.
 - Keep the editor, native launcher, installer, product documentation and download links on the same version. Never replace an existing published version with different binaries; increment the version.
 - Build and run relevant checks before publishing. Create the release as a draft, upload and verify the installer asset, then publish. Report the release URL, installer path and SHA-256.

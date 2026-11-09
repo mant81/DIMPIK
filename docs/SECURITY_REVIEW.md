@@ -1,6 +1,6 @@
-# ASnapdo 보안 점검 및 개선 — 2026-10-31
+# DIMPIK 보안 점검 및 개선 — 2026-10-31
 
-대상: `D:\ai\ASnapdo`의 현재 Windows x64 소스·로컬 빌드. 원격 침투 테스트나 보안 인증은 아닙니다. 점검 시점에는 GitHub 릴리즈를 교체하지 않았습니다. 1.0.1 배포 정보는 [RELEASE_1.0.1.md](RELEASE_1.0.1.md)를 참고하세요.
+대상: 현재 저장소의 Windows x64 소스·로컬 빌드. 원격 침투 테스트나 보안 인증은 아닙니다. 점검 시점에는 GitHub 릴리즈를 교체하지 않았습니다. 1.0.1 배포 정보는 [RELEASE_1.0.1.md](RELEASE_1.0.1.md)를 참고하세요.
 
 ## 적용한 개선
 
@@ -36,9 +36,9 @@
 
 | 검사 | 결과 |
 | --- | --- |
-| `dotnet build src/ASnapdo/ASnapdo.csproj -c Release --no-restore` | 성공, 경고 0·오류 0 |
-| `dotnet run --project tests/ASnapdo.Smoke -c Release -- --security-test` | 암호문 보관, 변조 거부, 평문 자동 변환, 실패 시 기존 파일 보존, 잘못된 값·목록·이미지·설정 제한 통과 |
-| 전체 `ASnapdo.Smoke` | 캡처 선택·취소, 모자이크/블러, 자르기, 탭/Undo, 클립보드, 세션 복원, 자동 저장, 설정/단축키 및 UI 검사 통과 |
+| `dotnet build src/DIMPIK/DIMPIK.csproj -c Release --no-restore` | 성공, 경고 0·오류 0 |
+| `dotnet run --project tests/DIMPIK.Smoke -c Release -- --security-test` | 암호문 보관, 변조 거부, 평문 자동 변환, 실패 시 기존 파일 보존, 잘못된 값·목록·이미지·설정 제한 통과 |
+| 전체 `DIMPIK.Smoke` | 캡처 선택·취소, 모자이크/블러, 자르기, 탭/Undo, 클립보드, 세션 복원, 자동 저장, 설정/단축키 및 UI 검사 통과 |
 | `--capture-startup-test` | 영역 선택 취소 시 숨김 유지, 전체 화면 캡처 후 편집 창 표시 통과 |
 | `tools/Test-NativeSecurity.ps1` | 1,013 / 1,023 / 1,024 / 4,096자 경로를 모두 111로 거부. 미지원 startup 유사 옵션도 포함하여 검사 |
 | `tools/Test-SessionLifecycle.ps1` | 실제 트레이에서 암호화 세션 두 번 복원·재저장 및 트레이 종료 시 세션 삭제 통과 |
@@ -46,7 +46,7 @@
 | 네이티브 PE 보호 정보 | Security Cookie, CFG, ASLR, NX, CET 호환 확인 |
 | `tools/Test-Resident.ps1` | **실패:** 최초 대기 작업 집합 10,964,992바이트로 10,000,000바이트 목표 초과. 기준을 완화하거나 강제 메모리 비우기를 하지 않음 |
 
-앱 게시 성공 후 설치 파일 생성에서 한 차례 EndUpdateResource(110) 오류가 발생했습니다. 보안 설정 변경 없이 별도 출력 폴더에서 Inno Setup 컴파일에 성공했고, 정식 경로 `release\setup\asnapdo_inst_x64_1.0.0.exe`로 복사했습니다. 별도 smoke 설치 패키지도 생성·검증했습니다.
+앱 게시 성공 후 설치 파일 생성에서 한 차례 EndUpdateResource(110) 오류가 발생했습니다. 보안 설정 변경 없이 별도 출력 폴더에서 Inno Setup 컴파일에 성공했고, 정식 경로 `release\setup\dimpik_inst_x64_1.0.0.exe`로 복사했습니다. 별도 smoke 설치 패키지도 생성·검증했습니다.
 
 앞선 NuGet 전이 의존성 검사에서 알려진 취약 패키지는 없었으며 이번 변경으로 외부 PackageReference를 추가하지 않았습니다. 앞선 소스의 일반적인 개인 키·AWS/GitHub 키 패턴 검사에서도 일치 파일을 발견하지 못했습니다. OS·프레임워크·모든 비밀 형식·Git 전체 이력을 포괄한 결과는 아닙니다.
 

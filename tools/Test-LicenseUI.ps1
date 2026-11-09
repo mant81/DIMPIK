@@ -1,4 +1,4 @@
-﻿param([string]$Package = "")
+param([string]$Package = "")
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,System.Drawing
 Add-Type @'
@@ -16,7 +16,7 @@ public static class LicenseWindow {
 }
 '@
 $root = [IO.Path]::GetFullPath("$PSScriptRoot\..")
-if (-not $Package) { $version = ([xml](Get-Content -LiteralPath "$root\src\ASnapdo\ASnapdo.csproj" -Raw)).Project.PropertyGroup.Version; $Package = "$root\release\setup\asnapdo_inst_x64_$version.exe" }
+if (-not $Package) { $version = ([xml](Get-Content -LiteralPath "$root\src\DIMPIK\DIMPIK.csproj" -Raw)).Project.PropertyGroup.Version; $Package = "$root\release\setup\dimpik_inst_x64_$version.exe" }
 $process = $null; $wizardProcess = 0
 try {
     if ([LicenseWindow]::Find() -ne [IntPtr]::Zero) { throw 'Another installer wizard is open.' }
@@ -46,7 +46,7 @@ try {
     try {
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
         try { $dc=$graphics.GetHdc(); try { [void][LicenseWindow]::PrintWindow($window,$dc,2) } finally { $graphics.ReleaseHdc($dc) } } finally { $graphics.Dispose() }
-        $bitmap.Save("$root\docs\screenshots\asnapdo-installer-license.png",[Drawing.Imaging.ImageFormat]::Png)
+        $bitmap.Save("$root\docs\screenshots\dimpik-installer-license.png",[Drawing.Imaging.ImageFormat]::Png)
     } finally { $bitmap.Dispose() }
     Write-Output 'PASS: installer shows free-use policy/publisher; Next disabled before agreement and enabled after agreement. No installation performed.'
 } finally {

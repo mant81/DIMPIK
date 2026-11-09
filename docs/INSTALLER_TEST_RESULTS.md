@@ -4,15 +4,15 @@
 
 ## 구조
 
-- 네이티브 `ASnapdo.exe`: 20,480바이트. CRT/.NET을 로드하지 않는 Win32 트레이·전역 단축키·편집기 실행 담당.
-- `editor/ASnapdo.exe`: 174,080바이트. 코드·프레임워크·런타임은 DLL로 분리.
+- 네이티브 `DIMPIK.exe`: 20,480바이트. CRT/.NET을 로드하지 않는 Win32 트레이·전역 단축키·편집기 실행 담당.
+- `editor/DIMPIK.exe`: 174,080바이트. 코드·프레임워크·런타임은 DLL로 분리.
 - 사용자별 설치, 시작 메뉴, 선택적 바탕 화면 바로가기/로그인 자동 실행, 제거 프로그램 제공.
 - 설치형 창 X는 세션 보관 후 .NET 프로세스 종료. 다시 열면 탭과 Undo 복원. 트레이 Exit는 저장 확인 없이 세션 폐기.
 - 기존 `build-exe.cmd`의 단일 EXE 배포는 분리 배포로 변경. 설치 배포는 `build-installer.ps1`을 사용.
 
 ## 실제 검증
 
-`dotnet run --project tests/ASnapdo.Smoke/ASnapdo.Smoke.csproj -c Release --no-restore`
+`dotnet run --project tests/DIMPIK.Smoke/DIMPIK.Smoke.csproj -c Release --no-restore`
 
 기존 캡처 선택·편집·탭·복사·자르기·Undo·설정·단축키 테스트 통과. 세션 직렬화에서 이미지, 주석 색상/좌표, 배율/스크롤, 이미지 및 주석 Undo 복원 확인.
 
@@ -34,7 +34,7 @@
 - 실제 Windows 로그아웃/로그인, 탐색기 재시작, 다중 모니터, 150%/200% DPI는 이 작업에서 실기 검증하지 않음.
 - 코드 서명과 공식 업데이트 채널은 미구성. 설치 파일 생성은 공개 배포/업로드를 의미하지 않음.
 - NuGet 취약성 피드 연결 실패로 NU1900 경고가 발생했으나 빌드/게시 자체는 성공.
-- `ASNAPDO_DATA_DIR` 환경 변수는 테스트/격리 프로필을 위한 데이터 경로 오버라이드이며 기본 사용자 데이터 폴더는 유지됨.
+- `DIMPIK_DATA_DIR` 환경 변수는 테스트/격리 프로필을 위한 데이터 경로 오버라이드이며 기본 사용자 데이터 폴더는 유지됨.
 
 ## 모자이크·블러·갤러리 추가 후 재검증 — 2026-10-31
 
@@ -42,8 +42,8 @@
 ## 무료 이용약관·제작사 표기 — 2026-10-31
 
 - `LICENSE.txt` 추가: 개인·기업·관공서 모두 무료, 업무/영리 목적 사용 무료를 명시. 제작사 AAStudio.kr. 일반적인 사용 허용, 원본 무료 재배포, 이용 책임, 제공 상태, 제3자 구성 요소, 업데이트 안내 포함.
-- 설치 프로그램의 무료 이용약관 단계와 앱 도움말이 동일한 약관 원문을 사용. 설치 후 앱 폴더에 LICENSE.txt 포함. 제작사는 설치 프로그램·네이티브 상주 EXE·편집기 EXE 회사 정보에 AAStudio.kr로 반영. 앱 상단 아이콘 + ASnapdo 표시는 유지.
-- `dotnet build src/ASnapdo/ASnapdo.csproj -c Release`: 성공(경고 0/오류 0). 기존 자동 테스트 및 도움말 약관 원문 일치/무료 대상/제작사 검사 통과.
-- `tools/Test-LicenseUI.ps1`: 실제 설치 마법사의 약관 내용과 무료 안내 확인. 동의 전 다음 버튼 비활성, 동의 후 활성 확인. 이 UI 검사는 설치 단계로 진행하지 않음. 실제 화면: docs/screenshots/asnapdo-installer-license.png.
-- 별도 테스트 AppId 패키지로 `tools/Test-Installer.ps1 -Package release/license-install-smoke-package/ASnapdo-Setup-Smoke.exe`: 설치/재설치/제거 통과. 설치된 약관의 무료 대상/제작사, EXE 회사 정보, EXE/DLL 분리, PDB 제외, 테스트 자동 실행 등록 및 제거 확인.
-- `build-installer.ps1` 및 갱신된 약관 헤더의 Inno Setup 재컴파일 성공. 최종 파일: release/setup/ASnapdo-Setup.exe. 설치 EXE의 CompanyName도 AAStudio.kr 확인. 코드 서명은 추가하지 않음.
+- 설치 프로그램의 무료 이용약관 단계와 앱 도움말이 동일한 약관 원문을 사용. 설치 후 앱 폴더에 LICENSE.txt 포함. 제작사는 설치 프로그램·네이티브 상주 EXE·편집기 EXE 회사 정보에 AAStudio.kr로 반영. 앱 상단 아이콘과 DIMPIK 표시는 적용.
+- `dotnet build src/DIMPIK/DIMPIK.csproj -c Release`: 성공(경고 0/오류 0). 기존 자동 테스트 및 도움말 약관 원문 일치/무료 대상/제작사 검사 통과.
+- `tools/Test-LicenseUI.ps1`: 실제 설치 마법사의 약관 내용과 무료 안내 확인. 동의 전 다음 버튼 비활성, 동의 후 활성 확인. 이 UI 검사는 설치 단계로 진행하지 않음. 실제 화면: docs/screenshots/dimpik-legacy-installer-license.png.
+- 별도 테스트 AppId 패키지로 `tools/Test-Installer.ps1 -Package release/license-install-smoke-package/DIMPIK-Setup-Smoke.exe`: 설치/재설치/제거 통과. 설치된 약관의 무료 대상/제작사, EXE 회사 정보, EXE/DLL 분리, PDB 제외, 테스트 자동 실행 등록 및 제거 확인.
+- `build-installer.ps1` 및 갱신된 약관 헤더의 Inno Setup 재컴파일 성공. 최종 파일: release/setup/DIMPIK-Setup.exe. 설치 EXE의 CompanyName도 AAStudio.kr 확인. 코드 서명은 추가하지 않음.
