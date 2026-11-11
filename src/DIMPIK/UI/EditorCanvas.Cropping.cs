@@ -15,44 +15,29 @@ public sealed partial class EditorCanvas
     public bool RegionCopyMode { get; private set; }
     public PixelEffectKind? PixelEffect { get; private set; }
     public int EffectStrength { get; private set; } = 12;
-    private Bitmap? effectPreview;
     public void StartCrop(bool copyRegion = false)
     {
         FinishTextEdit(); Capture = false; draft = null; penPoints = null; Tool = null; Document.Selection = null;
         RegionCopyMode = copyRegion;
-        PixelEffect = null; ClearEffectPreview();
+        PixelEffect = null;
         CropMode = true; CropBounds = Rectangle.Empty; Cursor = Cursors.Cross;
         SelectionChanged?.Invoke(this, EventArgs.Empty); Invalidate(); Focus();
     }
     public void StartPixelEffect(PixelEffectKind effect)
     {
-        StartCrop(); PixelEffect = effect;
+        CancelCrop(); FinishTextEdit(); Capture = false; draft = null; penPoints = null; Tool = null; Document.Selection = null;
+        RegionCopyMode = false; CropMode = false; CropBounds = Rectangle.Empty; PixelEffect = effect; Cursor = Cursors.Cross;
         EffectStrength = effect == PixelEffectKind.Mosaic ? 12 : 8;
-        SelectionChanged?.Invoke(this, EventArgs.Empty);
+        SelectionChanged?.Invoke(this, EventArgs.Empty); Invalidate(); Focus();
     }
     public void SetEffectStrength(int strength)
     {
-        EffectStrength = Math.Clamp(strength, 2, 64); RefreshEffectPreview();
+        EffectStrength = Math.Clamp(strength, 2, 64);
     }
-    private void ClearEffectPreview() { effectPreview?.Dispose(); effectPreview = null; }
-    private void RefreshEffectPreview()
-    {
-        ClearEffectPreview();
-        if (PixelEffect is { } effect && CanApplyCrop && !Capture)
-            effectPreview = Document.PreviewPixelEffect(CropBounds, effect, EffectStrength);
-        Invalidate();
-    }
-    public bool ApplyPixelEffect()
-    {
-        if (!CanApplyCrop || PixelEffect is not { } effect) return false;
-        bool changed = Document.ApplyPixelEffect(CropBounds, effect, EffectStrength);
-        CancelCrop(); if (changed) NotifyEdit(); return changed;
-    }
-    protected override void Dispose(bool disposing) { if (disposing) ClearEffectPreview(); base.Dispose(disposing); }
     public void CancelCrop()
     {
-        if (!CropMode) return;
-        Capture = false; CropMode = false; RegionCopyMode = false; PixelEffect = null; ClearEffectPreview(); CropBounds = Rectangle.Empty; Cursor = Cursors.Default;
+        if (!CropMode && PixelEffect == null) return;
+        Capture = false; CropMode = false; RegionCopyMode = false; PixelEffect = null; CropBounds = Rectangle.Empty; Cursor = Cursors.Default;
         SelectionChanged?.Invoke(this, EventArgs.Empty); Invalidate();
     }
     public bool ApplyCrop()
@@ -73,7 +58,6 @@ public sealed partial class EditorCanvas
     }
     private void BeginCropDrag(PointF point)
     {
-        ClearEffectPreview();
         cropOriginal = CropBounds;
         cropHandle = CropHitHandle(point);
         if (cropHandle < 0 && !CropBounds.Contains(Point.Round(point))) { cropHandle = -2; CropBounds = Rectangle.Empty; }

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 
 const root = path.resolve(import.meta.dirname, '..');
 const site = path.join(root, 'site-staging');
-const version = '1.0.4';
+const version = '1.0.5';
 const filename = `dimpik_inst_x64_${version}.exe`;
 const binary = fs.readFileSync(path.join(root, 'release', 'setup', filename));
 const sha256 = crypto.createHash('sha256').update(binary).digest('hex');

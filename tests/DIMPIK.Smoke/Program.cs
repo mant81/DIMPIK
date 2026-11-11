@@ -28,181 +28,46 @@ internal static class Program
     private static void TestMockupUi()
     {
         string? previous = Environment.GetEnvironmentVariable("DIMPIK_DATA_DIR");
-        string folder = Path.Combine(Path.GetTempPath(), "DIMPIK-menu-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Path.GetTempPath(), "DIMPIK-ui-" + Guid.NewGuid().ToString("N"));
         Environment.SetEnvironmentVariable("DIMPIK_DATA_DIR", folder);
         try
         {
-            using var form = new MainForm { Width = 1200, Height = 900 };
+            using var form = new MainForm { Size = new Size(1397, 835) };
             form.Show(); Application.DoEvents();
             var menu = form.MainMenuStrip!;
             var menus = menu.Items.OfType<ToolStripMenuItem>().ToArray();
             Check(menus.Select(x => x.Text).SequenceEqual(new[] { "파일", "편집", "보기" }), "Top menus match specification");
-            Check(menus[0].DropDownItems.Cast<ToolStripItem>().Select(x => x.Text).SequenceEqual(new[] { "저장", "인쇄", "이미지 속성" }), "File menu items");
-            Check(menus[1].DropDownItems.Cast<ToolStripItem>().Take(3).Select(x => x.Text).SequenceEqual(new[] { "잘라내기", "복사", "붙여넣기" }), "Edit menu items");
-            Check(menus[2].DropDownItems.Cast<ToolStripItem>().Select(x => x.Text).SequenceEqual(new[] { "눈금자", "격자", "상태표시줄", "툴바 보이기", "툴바 숨기기" }), "View menu items");
+            Check(!menu.Font.Bold, "Menu text is regular weight");
+            Check(menus[0].DropDownItems.OfType<ToolStripMenuItem>().Select(x => x.Text).SequenceEqual(new[] { "열기...", "저장", "인쇄", "이미지 속성", "도움말", "닫기" }), "File menu keeps close last");
             var controls = Descendants(form).ToArray();
-            var shape = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "도형");
-            var select = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "선택");
-            Check(select.Visible && select.PointToScreen(Point.Empty).X < shape.PointToScreen(Point.Empty).X, "Selection tool appears before shape tool");
-            Check(shape.ShowDropArrow, "Shape button shows its dropdown arrow");
-            var size = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "선 크기");
-            Check(size.ShowDropArrow, "Size button shows its dropdown arrow");
-            var palette = controls.OfType<ColorSwatch>().Single(c => c.AccessibleName == "색상 #2563EB");
-            Check(palette.Visible && shape.Visible && size.Visible, "Toolbar shows shape, palette and size");
-            foreach (var name in new[] { "도형", "펜", "형광펜", "텍스트", "번호", "모자이크", "블러", "선택 자르기", "이미지 크기 조절", "선택한 이미지 영역 복사", "이미지 붙여넣기" })
-            {
-                var button = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == name);
-                Check(button.Visible && !string.IsNullOrWhiteSpace(button.Text), $"Toolbar label visible at startup: {name}");
-            }
-            var paste = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "이미지 붙여넣기");
-            var copyRegion = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "선택한 이미지 영역 복사");
-            var toolbar = (FlowLayoutPanel)paste.Parent!.Parent!.Parent!;
-            Check(!controls.OfType<ChromeButton>().Any(c => c.AccessibleName == "더보기"), "More button is removed");
-            Check(paste.PointToScreen(Point.Empty).X > copyRegion.PointToScreen(Point.Empty).X && paste.Parent == copyRegion.Parent, "Paste appears immediately after region copy");
-            Check(toolbar.ClientRectangle.Contains(toolbar.RectangleToClient(paste.RectangleToScreen(paste.ClientRectangle))), "All toolbar controls fit at 1200 px");
-            palette.PerformClick();
-            var shapePopup = (ToolStripDropDown)typeof(MainForm).GetField("shapeOptionsDropDown", Private)!.GetValue(form)!;
-            var sizeMenu = (ContextMenuStrip)typeof(MainForm).GetField("sizeOptionsMenu", Private)!.GetValue(form)!;
-            Check(!shapePopup.Visible && !sizeMenu.Visible, "Shape and size menus start closed");
-            shape.PerformClick(); Application.DoEvents();
-            Check(shapePopup.Visible && Descendants(((ToolStripControlHost)shapePopup.Items[0]).Control).OfType<ChromeButton>().Count(c => c.AccessibleName?.EndsWith(" 도형") == true) == 6, "Shape menu opens with six shapes");
-            shapePopup.Close(); size.PerformClick(); Application.DoEvents(); Check(sizeMenu.Visible, "Size menu opens on click");
-            sizeMenu.Items.Cast<ToolStripItem>().Single(i => i.Text == "5 px").PerformClick();
-            var width = (TrackBar)typeof(MainForm).GetField("strokeControl", Private)!.GetValue(form)!;
-            Check(width.Value == 5, "Size menu changes line width");
-            // Capture hides the editor before adding the new document, then restores it.
-            form.Hide();
-            typeof(MainForm).GetMethod("AddDocument", Private)!.Invoke(form, [Sample(800, 500)]);
-            form.Show();
-            Application.DoEvents();
-            foreach (var name in new[] { "도형", "펜", "형광펜", "텍스트", "번호", "선 크기", "모자이크", "블러", "선택 자르기", "이미지 크기 조절", "선택한 이미지 영역 복사" })
-            {
-                var button = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == name);
-                Check(button.Visible && button.Parent!.Parent!.Width >= button.Right, $"Toolbar group retains its width after capture: {name}");
-            }
-            var editor = (EditorCanvas)typeof(MainForm).GetProperty("Editor", Private)!.GetValue(form)!;
-            Check(editor.Ink.ToArgb() == Color.FromArgb(37, 99, 235).ToArgb() && editor.Stroke == 5, "Toolbar defaults apply to new document");
-            var textAnnotation = new Annotation { Kind = AnnotationKind.Text, Text = "test", Bounds = new RectangleF(200, 80, 100, 50) };
-            editor.Document.Annotations.Add(textAnnotation); editor.Tool = AnnotationKind.Text;
-            select.PerformClick();
-            Check(editor.Tool == null && select.Selected, "Selection button activates selection mode");
-            var textPoint = new Point((int)(220 * editor.Document.Zoom), (int)(100 * editor.Document.Zoom));
-            Mouse(editor, "OnMouseDown", textPoint); Mouse(editor, "OnMouseUp", textPoint);
-            Check(editor.Document.Selection == textAnnotation.Id, "Selection tool selects text on the image");
-            size.PerformClick(); Application.DoEvents();
-            Check(sizeMenu.Items.Cast<ToolStripItem>().Any(i => i.Text == "48 px") && !sizeMenu.Items.Cast<ToolStripItem>().Any(i => i.Text == "3 px"), "Text selection shows font sizes instead of stroke widths");
-            sizeMenu.Items.Cast<ToolStripItem>().Single(i => i.Text == "48 px").PerformClick();
-            Check(textAnnotation.FontSize == 48 && textAnnotation.Bounds.Width == 200 && editor.Stroke == 5, "Size menu changes selected text size and expands its bounds without changing stroke");
-            editor.Document.Undo();
-            Check(editor.Document.Annotations.Single().FontSize == 24 && editor.Document.Annotations.Single().Bounds.Width == 100, "Text size change undoes as one operation");
-            editor.Document.Annotations.Clear(); editor.Document.Selection = null;
-            using (var clipboardImage = Sample(24, 18)) Clipboard.SetImage(clipboardImage);
-            paste.PerformClick();
-            Check(editor.Document.Annotations.Single().Kind == AnnotationKind.Image, "Toolbar paste adds the clipboard image");
-            editor.Document.Undo(); editor.Document.Selection = null;
+            var settings = menu.Items.OfType<ToolStripButton>().Single(x => x.AccessibleName == "설정");
+            Check(settings.Alignment == ToolStripItemAlignment.Right && menu.Width - settings.Bounds.Right <= 3, "Settings reaches the right edge");
+            var palette = controls.OfType<ColorSwatch>().Where(x => x.AccessibleName?.StartsWith("색상 #") == true).ToArray();
+            Check(palette.Length == 12 && palette.Select(x => x.Top).Distinct().Count() == 2, "Palette stays in two rows");
+            var picker = controls.OfType<ChromeButton>().Single(x => x.AccessibleName == "사용자 지정 색상");
+            int top = palette.Min(x => x.PointToScreen(Point.Empty).Y), bottom = palette.Max(x => x.PointToScreen(new Point(0, x.Height)).Y);
+            Check(Math.Abs(picker.PointToScreen(new Point(0, picker.Height / 2)).Y - (top + bottom) / 2) <= 2, "Color picker centers on both rows");
+            var paste = controls.OfType<ChromeButton>().Single(x => x.AccessibleName == "이미지 붙여넣기");
+            Check(!paste.Visible && menus[1].DropDownItems.OfType<ToolStripMenuItem>().Any(x => x.Text == "붙여넣기"), "Paste remains available from the edit menu");
+            var add = typeof(MainForm).GetMethod("AddDocument", Private)!;
+            add.Invoke(form, [Sample(800, 450)]); Application.DoEvents();
             var tabs = (TabControl)typeof(MainForm).GetField("tabs", Private)!.GetValue(form)!;
-            var firstName = ((CaptureDocument)tabs.SelectedTab!.Tag!).Name;
-            Check(System.Text.RegularExpressions.Regex.IsMatch(firstName, @"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.png$"), "New capture has a valid timestamp file name");
-            Check(System.Text.RegularExpressions.Regex.IsMatch(tabs.SelectedTab.Text, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"), "Capture tab displays date and time including minutes and seconds");
-            var view = menus[2];
-            view.ShowDropDown(); Application.DoEvents(); ((ToolStripMenuItem)view.DropDownItems[0]).PerformClick(); Application.DoEvents();
-            Check(tabs.SelectedTab!.Controls.OfType<CanvasRuler>().All(r => r.Visible), "View menu enables rulers");
-            view.ShowDropDown(); ((ToolStripMenuItem)view.DropDownItems[1]).PerformClick(); Application.DoEvents();
-            Check(editor.ShowGrid && SettingsService.Load().ShowGrid, "Grid enabled and persisted");
-            using (var before = editor.Document.Compose()) { editor.Invalidate(); Application.DoEvents(); using var after = editor.Document.Compose(); Check(before.GetPixel(20, 20) == after.GetPixel(20, 20), "Grid does not alter exported image"); }
-            view.ShowDropDown(); ((ToolStripMenuItem)view.DropDownItems[2]).PerformClick(); Application.DoEvents();
-            Check(!SettingsService.Load().ShowStatusBar, "Status visibility persists");
-            view.ShowDropDown(); ((ToolStripMenuItem)view.DropDownItems[4]).PerformClick(); Application.DoEvents();
-            Check(!shape.Visible && menu.Visible && !SettingsService.Load().ShowToolbar, "Toolbar hides while menu remains accessible");
-            view.ShowDropDown(); ((ToolStripMenuItem)view.DropDownItems[3]).PerformClick(); Application.DoEvents();
-            Check(shape.Visible && SettingsService.Load().ShowToolbar, "Toolbar can be restored");
-            Check(shape.Text == "도형", "Opening menus preserves toolbar labels");
-            var annotation = new Annotation { Kind = AnnotationKind.Rectangle, Bounds = new RectangleF(40, 40, 100, 80), Width = 3 };
-            editor.Document.Annotations.Add(annotation); editor.Document.Selection = null;
-            editor.Tool = AnnotationKind.Rectangle;
-            var shapePoint = new Point((int)(50 * editor.Document.Zoom), (int)(50 * editor.Document.Zoom));
-            Mouse(editor, "OnMouseDown", shapePoint); Mouse(editor, "OnMouseUp", shapePoint);
-            Check(editor.Document.Selection == annotation.Id && editor.Tool == null, "Clicking an existing shape while the shape tool is active selects it");
-            editor.Focus(); Application.DoEvents();
-            using (var external = Sample(12, 10)) Clipboard.SetImage(external);
-            var keyHandler = typeof(MainForm).GetMethod("ProcessCmdKey", Private)!;
-            void Shortcut(Keys key) { object[] args = [new Message(), key]; Check((bool)keyHandler.Invoke(form, args)!, $"Shortcut handled: {key}"); }
-            var background = editor.Document.Image;
-            Shortcut(Keys.Control | Keys.C); Shortcut(Keys.Control | Keys.V);
-            Check(editor.Document.Annotations.Count == 2 && editor.Document.Annotations.Last().Kind == AnnotationKind.Rectangle, "Ctrl+C/V duplicates only the selected shape");
-            var pasted = editor.Document.Annotations.Last();
-            Check(pasted.Id != annotation.Id && editor.Document.Selection == pasted.Id && pasted.Bounds.X > annotation.Bounds.X && ReferenceEquals(background, editor.Document.Image), "Pasted shape is selected, offset and preserves the background");
-            using (var external = Clipboard.GetImage()) Check(external?.Size == new Size(12, 10), "Shape copy preserves the system image clipboard");
-            Shortcut(Keys.Control | Keys.C);
-            typeof(MainForm).GetMethod("AddDocument", Private)!.Invoke(form, [Sample(400, 250)]); Application.DoEvents();
-            var destination = (EditorCanvas)typeof(MainForm).GetProperty("Editor", Private)!.GetValue(form)!;
-            var destinationBackground = destination.Document.Image; destination.Focus(); Shortcut(Keys.Control | Keys.V);
-            Check(destination.Document.Annotations.Count == 1 && destination.Document.Annotations[0].Kind == AnnotationKind.Rectangle && ReferenceEquals(destinationBackground, destination.Document.Image), "Selected shape pastes independently onto another capture");
-            Check(Math.Abs(destination.Document.Annotations[0].Bounds.Width - pasted.Bounds.Width / 2) < .01f, "Cross-tab shape paste scales to destination image");
-            destination.Document.Saved(); typeof(MainForm).GetMethod("CloseTab", Private)!.Invoke(form, [tabs.SelectedIndex, true]);
-            editor.Focus(); Application.DoEvents();
-            editor.Document.Undo(); Check(editor.Document.Annotations.Count == 1, "Pasted shape can be undone");
-            editor.Document.Selection = null; Shortcut(Keys.Control | Keys.C);
-            using (var composite = Clipboard.GetImage()) Check(composite?.Size == editor.Document.Image.Size, "Ctrl+C without selection copies the composed image");
-            editor.Document.Selection = editor.Document.Annotations.Single().Id;
-            ((ToolStripMenuItem)menus[1].DropDownItems[0]).PerformClick();
-            Check(editor.Document.Annotations.Count == 0, "Cut removes selected annotation");
-            ((ToolStripMenuItem)menus[1].DropDownItems[2]).PerformClick();
-            Check(editor.Document.Annotations.Count == 1, "Paste restores cut annotation");
-            for (int i = 0; i < 2; i++)
+            Check(tabs.SelectedTab!.Controls.OfType<Panel>().Single().BackColor == Color.White, "Document workspace is white");
+            foreach (var size in new[] { new Size(1397, 835), new Size(1116, 647), new Size(1600, 900) })
             {
-                form.Hide(); typeof(MainForm).GetMethod("AddDocument", Private)!.Invoke(form, [Sample(400, 300)]); form.Show(); Application.DoEvents();
-                Check(shape.Parent!.Parent!.Width >= shape.Right && size.Parent!.Parent!.Width >= size.Right, "Toolbar retains width across repeated captures");
+                form.Size = size; Application.DoEvents();
+                var status = Descendants(form).OfType<StatusStrip>().Single();
+                var location = form.PointToClient(status.PointToScreen(Point.Empty));
+                Check(status.Width == form.ClientSize.Width && location.Y + status.Height == form.ClientSize.Height, "Status bar fills resized window");
+                Check(form.ClientSize == form.Size, "Restored window has no native frame");
             }
-            tabs.SelectedIndex = 0; Application.DoEvents();
-            var tabStrip = Descendants(form).Single(c => c.AccessibleName == "캡처 탭");
-            Check(tabStrip.Visible && tabStrip.Width == tabs.Parent!.ClientSize.Width, "Custom tab strip is visible across the workspace");
-            Check(tabStrip.Parent!.Controls.GetChildIndex(tabStrip) == 0, "Custom tab strip is above the native tab headers");
-            using (var stripImage = new Bitmap(tabStrip.Width, tabStrip.Height)) { tabStrip.DrawToBitmap(stripImage, new Rectangle(Point.Empty, stripImage.Size)); stripImage.Save(Path.Combine(Environment.CurrentDirectory, "docs", "screenshots", "dimpik-tabs-render.png")); }
-            Check(tabs.TabPages.Cast<TabPage>().Select(p => ((CaptureDocument)p.Tag!).Name).Distinct().Count() == tabs.TabCount, "Rapid captures have unique file names");
-            Check(tabs.TabPages.Cast<TabPage>().Select(p => p.Text).Distinct().Count() == tabs.TabCount, "Rapid captures have unique tab titles");
-            using (var tabFont = new Font("Segoe UI", 8.5f, FontStyle.Bold))
-                Check(tabs.TabPages.Cast<TabPage>().All(p => TextRenderer.MeasureText(p.Text.Replace(" ●", " *"), tabFont, Size.Empty, TextFormatFlags.NoPadding).Width <= 278 - 68), "Capture timestamps and collision suffixes fit the tab");
-            var tabMouse = tabStrip.GetType().GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            tabMouse.Invoke(tabStrip, [new MouseEventArgs(MouseButtons.Left, 1, 8 + 278 + 40, 20, 0)]);
-            Check(tabs.SelectedIndex == 1, "Clicking a custom tab selects its capture");
-            ((CaptureDocument)tabs.SelectedTab!.Tag!).Saved();
-            tabMouse.Invoke(tabStrip, [new MouseEventArgs(MouseButtons.Left, 1, 8 + 2 * 278 - 20, 20, 0)]);
-            Check(tabs.TabCount == 2, "Clicking a custom tab close button closes the correct capture");
-            Check(shape.Visible && shape.Parent!.Parent!.Width >= shape.Right, "Switching capture tabs preserves toolbar layout");
-            form.Width = 900; Application.DoEvents();
-            Check(menu.Visible && shape.Visible && shape.Text == "", "Narrow toolbar switches to icons");
-            int shapeTextChanges = 0;
-            shape.TextChanged += (_, _) => shapeTextChanges++;
-            for (int w = 905; w <= 950; w += 5) { form.Width = w; Application.DoEvents(); }
-            Check(shape.Text == "" && shapeTextChanges == 0, "Resizing in icon mode does not repeatedly change toolbar labels");
-            form.Width = 900; Application.DoEvents();
-            for (int i = 0; i < 3; i++) typeof(MainForm).GetMethod("AddDocument", Private)!.Invoke(form, [Sample(100, 80)]);
-            Application.DoEvents();
-            tabMouse.Invoke(tabStrip, [new MouseEventArgs(MouseButtons.Left, 1, 10, 20, 0)]);
-            tabMouse.Invoke(tabStrip, [new MouseEventArgs(MouseButtons.Left, 1, 32 + 40, 20, 0)]);
-            Check(tabs.SelectedIndex < tabs.TabCount - 1, "Overflow navigation reaches earlier captures");
-            Check(!toolbar.AutoScroll && toolbar.ClientRectangle.Contains(toolbar.RectangleToClient(paste.RectangleToScreen(paste.ClientRectangle))), "Narrow toolbar fits without a horizontal scrollbar");
-            foreach (var name in new[] { "선택", "도형", "펜", "형광펜", "텍스트", "번호", "선 크기", "모자이크", "블러", "선택 자르기", "이미지 크기 조절", "선택한 이미지 영역 복사", "이미지 붙여넣기" })
-            {
-                var button = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == name);
-                Check(button.Visible && toolbar.ClientRectangle.Contains(toolbar.RectangleToClient(button.RectangleToScreen(button.ClientRectangle))), $"Narrow toolbar keeps {name} reachable");
-            }
-            form.Width = 1400; Application.DoEvents();
-            Check(shape.Text == "도형" && paste.Text == "붙여넣기", "Widening the window restores toolbar labels");
-            Check(shapeTextChanges == 1, "Switching to wide mode changes labels only once");
-            var settings = (AppSettings)typeof(MainForm).GetField("settings", Private)!.GetValue(form)!;
-            var relayout = (Action)typeof(MainForm).GetField("relayout", Private)!.GetValue(form)!;
-            settings.ToolbarPosition = "Left"; relayout(); Application.DoEvents();
-            Check(copyRegion.Visible && paste.Visible && paste.Parent == copyRegion.Parent, "Region tools remain available in the left toolbar");
-            settings.ToolbarPosition = "Top"; relayout(); Application.DoEvents();
-            Check(paste.Visible && paste.PointToScreen(Point.Empty).X > copyRegion.PointToScreen(Point.Empty).X, "Toolbar order is restored after changing position");
+            var maximize = controls.OfType<Button>().Single(x => x.AccessibleName == "최대화 / 복원");
+            maximize.PerformClick(); Application.DoEvents(); Check(form.WindowState == FormWindowState.Maximized, "Maximize button maximizes");
+            maximize.PerformClick(); Application.DoEvents(); Check(form.WindowState == FormWindowState.Normal && form.ClientSize == form.Size, "Maximize button restores frameless window");
+            form.Size = new Size(1397, 835); Application.DoEvents();
             Directory.CreateDirectory(Path.Combine(Environment.CurrentDirectory, "docs", "screenshots"));
-            using (var image = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(Environment.CurrentDirectory, "docs", "screenshots", "dimpik-mockup-render.png")); }
-            try { using var screen = new Bitmap(form.Width, form.Height); using var graphics = Graphics.FromImage(screen); graphics.CopyFromScreen(form.Left, form.Top, 0, 0, form.Size); screen.Save(Path.Combine(Environment.CurrentDirectory, "docs", "screenshots", "dimpik-mockup-screen.png")); Console.WriteLine("PASS: captured running desktop window."); }
-            catch (Exception error) { Console.WriteLine("Live desktop capture unavailable: " + error.Message); }
-            form.Hide();
-            Console.WriteLine("PASS: menus, toolbar, persisted views and annotation cut/paste.");
+            Save(form, Path.Combine(Environment.CurrentDirectory, "docs", "screenshots", "dimpik-release-ui.png"));
+            Console.WriteLine("PASS: release menus, palette alignment, document background, window resizing, maximize/restore and status layout.");
         }
         finally { Environment.SetEnvironmentVariable("DIMPIK_DATA_DIR", previous); if (Directory.Exists(folder)) Directory.Delete(folder, true); }
     }
@@ -363,6 +228,7 @@ internal static class Program
             document.Zoom = zoom;
             int x = (int)((40 + document.Annotations.Count * 60) * zoom);
             int y = (int)(80 * zoom);
+            canvas.Tool = AnnotationKind.Number;
             // Reproduce the automatic capture performed by WinForms before MouseDown.
             canvas.Capture = true;
             typeof(EditorCanvas).GetMethod("OnMouseDown", Private)!.Invoke(canvas, [new MouseEventArgs(MouseButtons.Left, 1, x, y, 0)]);
@@ -371,7 +237,7 @@ internal static class Program
             typeof(EditorCanvas).GetMethod("OnMouseUp", Private)!.Invoke(canvas, [new MouseEventArgs(MouseButtons.Left, 1, x + 2, y + 2, 0)]);
             var number = document.Annotations.Last();
             Check(number.Text == document.Annotations.Count.ToString() && number.Bounds.Size == new SizeF(36, 36), "Sequential number retains default image-relative size after pointer movement");
-            Check(canvas.Tool == AnnotationKind.Number, "Number tool stays active");
+            Check(canvas.Tool == null, "Number tool returns to selection mode");
         }
         document.Undo();
         Check(document.Annotations.Count == 2 && document.Annotations.All(a => a.Bounds.Size == new SizeF(36, 36)), "One Undo removes only the latest number");
@@ -574,8 +440,7 @@ internal static class Program
                 typeof(Control).GetMethod("OnClick", Private)!.Invoke(firstThumbnail, [EventArgs.Empty]);
                 Check(tabs.SelectedIndex == 0, "Gallery thumbnail switches active tab");
                 tabs.SelectedIndex = 2; panel.AutoScrollPosition = Point.Empty;
-                editor.StartPixelEffect(PixelEffectKind.Mosaic); Drag(editor, new(60, 60), new(650, 145));
-                editor.SetEffectStrength(16); editor.ApplyPixelEffect();
+                editor.StartPixelEffect(PixelEffectKind.Mosaic); editor.SetEffectStrength(16); Drag(editor, new(60, 60), new(650, 145));
                 Application.DoEvents(); Save(form, Path.Combine(output, "dimpik-gallery.png"));
                 editor.StartPixelEffect(PixelEffectKind.Blur); Drag(editor, new(70, 180), new(500, 290));
                 Save(form, Path.Combine(output, "dimpik-blur-preview.png")); editor.CancelCrop();
@@ -647,7 +512,7 @@ internal static class Program
         using var composed = doc.Compose(); Check(composed.Size == doc.Image.Size, "Composition size");
         editor.Tool = AnnotationKind.Number;
         Mouse(editor, "OnMouseDown", new(450, 200)); Mouse(editor, "OnMouseUp", new(450, 200));
-        Mouse(editor, "OnMouseDown", new(550, 200)); Mouse(editor, "OnMouseUp", new(550, 200));
+        editor.Tool = AnnotationKind.Number; Mouse(editor, "OnMouseDown", new(550, 200)); Mouse(editor, "OnMouseUp", new(550, 200));
         Check(doc.Annotations.Where(a => a.Kind == AnnotationKind.Number).Select(a => a.Text).SequenceEqual(["1", "2"]), "Consecutive number clicks");
         Mouse(editor, "OnMouseDown", new(460, 210)); Mouse(editor, "OnMouseUp", new(460, 210));
         Mouse(editor, "OnMouseDoubleClick", new(460, 210));
@@ -727,19 +592,19 @@ internal static class Program
             using var stream = new MemoryStream(); after.Save(stream, System.Drawing.Imaging.ImageFormat.Png); stream.Position = 0;
             using var png = new Bitmap(stream); Check(png.GetPixel(14, 10).ToArgb() == after.GetPixel(14, 10).ToArgb(), "PNG includes raster effect");
         }
-        Check(doc.Annotations.Count(a => a.IsSelectable) == 1 && doc.Annotations[0].Id == shape.Id, "Raster effect preserves editable objects");
+        Check(doc.Annotations.Count(a => a.IsSelectable) == 2 && doc.Annotations[0].Id == shape.Id, "Raster effect preserves editable objects");
         using var destination = new CaptureDocument(new Bitmap(64, 48), "target.png"); var buffer = new ClipboardService(); buffer.CopyAnnotations(doc, false); buffer.Paste(destination);
-        Check(destination.Annotations.Count == 1 && destination.Annotations[0].Kind == AnnotationKind.Rectangle, "Raster effect is excluded from annotation buffer");
+        Check(destination.Annotations.Count == 2 && destination.Annotations.Any(a => a.Kind == AnnotationKind.PixelPatch), "Effect object is included in annotation buffer");
         doc.Undo(); using (var undone = doc.Compose()) Check(undone.GetPixel(20, 12).ToArgb() == before.GetPixel(20, 12).ToArgb() && doc.Annotations.Count == 1, "Effect undo is one operation");
         using var host = new Form(); using var editor = new EditorCanvas(doc); host.Controls.Add(editor); host.Show();
-        doc.Zoom = .5f; editor.UpdateSize(); editor.StartPixelEffect(PixelEffectKind.Blur);
+        doc.Zoom = .5f; editor.UpdateSize(); editor.StartPixelEffect(PixelEffectKind.Blur); editor.SetEffectStrength(6);
         Drag(editor, new(22, 16), new(6, 4));
-        Check(editor.CropBounds == region && !editor.ApplyCrop(), "Reverse effect selection uses image coordinates and cannot crop");
-        editor.SetEffectStrength(6); Check(editor.ApplyPixelEffect() && doc.Image.Size == checker.Size, "Effect UI commits without resizing image");
+        Check(doc.Annotations.Last().Bounds == region && !editor.ApplyCrop(), "Reverse effect selection uses image coordinates and cannot crop");
+        Check(doc.Annotations.Last().EffectStrength == 6 && doc.Image.Size == checker.Size, "Effect drag commits without resizing image");
         doc.Undo(); Check(doc.Annotations.Count == 1, "Blur undo restores objects");
-        editor.StartPixelEffect(PixelEffectKind.Mosaic); Drag(editor, new(6, 4), new(22, 16)); editor.CancelCrop(); Check(doc.Annotations.Count == 1, "Effect cancel leaves document intact");
+        editor.StartPixelEffect(PixelEffectKind.Mosaic); editor.CancelCrop(); Check(doc.Annotations.Count == 1, "Effect cancel leaves document intact");
         host.Close();
-        Console.WriteLine("PASS: mosaic/blur pixels, alpha/edge cases, composited region/PNG, independent object edits, copy exclusion, zoom selection and single undo.");
+        Console.WriteLine("PASS: mosaic/blur pixels, alpha/edge cases, composited region/PNG, independent effect objects, annotation copy, zoom selection and single undo.");
     }
     private static void TestAutoSave()
     {

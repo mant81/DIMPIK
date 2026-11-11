@@ -52,12 +52,12 @@ fs.mkdirSync(output, { recursive:true });
         assert.equal(response.status(),200,`Broken link ${href}`);
       }
     }
-    const metadata = JSON.parse(fs.readFileSync(path.join(site,'release','dimpik-1.0.4.json'),'utf8'));
-    assert.equal(metadata.version,'1.0.4');
+    const metadata = JSON.parse(fs.readFileSync(path.join(site,'release','dimpik-1.0.5.json'),'utf8'));
+    assert.equal(metadata.version,'1.0.5');
     assert.equal(metadata.installDirectory,path.win32.join('C:/','Program Files','DIMPIK'));
     await page.goto(base + '/dimpik/');
     const [download] = await Promise.all([page.waitForEvent('download'),page.locator('a[download]').first().click()]);
-    assert.equal(download.suggestedFilename(),'dimpik_inst_x64_1.0.4.exe');
+    assert.equal(download.suggestedFilename(),'dimpik_inst_x64_1.0.5.exe');
     const file = fs.readFileSync(await download.path());
     assert.equal(crypto.createHash('sha256').update(file).digest('hex'),metadata.sha256);
     assert.equal(file.length,metadata.sizeBytes);

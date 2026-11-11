@@ -7,8 +7,14 @@ namespace DIMPIK;
 
 public sealed class MainForm : Form
 {
-    private readonly TabControl tabs = new() { Dock = DockStyle.Fill, DrawMode = TabDrawMode.OwnerDrawFixed, SizeMode = TabSizeMode.Fixed, ItemSize = new Size(280, 38), Padding = new Point(10, 5) };
+    private readonly TabControl tabs = new DocumentTabHost() { Dock = DockStyle.Fill, DrawMode = TabDrawMode.OwnerDrawFixed, SizeMode = TabSizeMode.Fixed, ItemSize = new Size(280, 38), Padding = new Point(10, 5) };
     private readonly ToolStripStatusLabel status = new() { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+    private ToolStripStatusLabel? imageInfoStatus, dimensionsStatus, fileSizeStatus;
+    private ToolStripSeparator? imageMetadataSeparator;
+    private CaptureDocument? measuredSizeDocument;
+    private int measuredSizeRevision = -1;
+    private string? measuredSizeSavePath;
+    private long measuredPngBytes;
     private readonly ClipboardService clipboard = new();
     private readonly CaptureGallery gallery = new() { Visible = false };
     private readonly RegionClipboardPanel regionClipboard = new();
@@ -52,6 +58,7 @@ public sealed class MainForm : Form
     private readonly bool captureOnlyStartup;
     private Action? initializeStartup;
     private EditorCanvas? Editor => tabs.SelectedTab?.Controls.OfType<Panel>().FirstOrDefault()?.Controls.OfType<EditorCanvas>().FirstOrDefault();
+    private int ScaleUi(int logical) => Math.Max(1, (int)Math.Round(logical * DeviceDpi / 96f));
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();
 
@@ -62,15 +69,16 @@ public sealed class MainForm : Form
         Icon = AppIcon.Load();
         Disposed += (_, _) => Icon?.Dispose();
         var version = typeof(MainForm).Assembly.GetName().Version;
-        Text = version != null ? $"딤픽  DIMPIK v{version.ToString(3)}" : "딤픽  DIMPIK";
+        Text = version != null ? $"딤픽 v{version.ToString(3)}" : "딤픽";
         Width = 1400; Height = 820; MinimumSize = new Size(900, 500); StartPosition = FormStartPosition.CenterScreen;
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi; Font = new Font("Segoe UI", 9.5f); BackColor = Color.FromArgb(245, 247, 250);
         settings = SettingsService.Load();
-        var header = new Panel { Dock = DockStyle.None, Height = 136, BackColor = Color.FromArgb(237, 243, 252), Padding = Padding.Empty };
-        var toolbarCard = new RoundedPanel { AccessibleName = "주 도구 모음" };
+        var header = new Panel { Dock = DockStyle.None, Height = ScaleUi(136), BackColor = Color.FromArgb(237, 243, 252), Padding = Padding.Empty };
+        var toolbarCard = new Panel { AccessibleName = "주 도구 모음", BackColor = Color.FromArgb(246, 248, 255) };
         var headerActions = new BufferedFlowLayoutPanel { Dock = DockStyle.None, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false, Padding = Padding.Empty, Margin = Padding.Empty, BackColor = Color.FromArgb(252, 253, 255) };
         header.Controls.Add(toolbarCard); toolbarCard.Controls.Add(headerActions);
-        var menuBar = new MenuStrip { Dock = DockStyle.None, AutoSize = false, Height = 32, Padding = new Padding(24, 2, 38, 2), ImageScalingSize = new Size(20, 20), BackColor = Color.FromArgb(237, 243, 252), RenderMode = ToolStripRenderMode.System, AccessibleName = "주 메뉴" };
+        var menuBar = new MenuStrip { Dock = DockStyle.None, AutoSize = false, Height = ScaleUi(32), Padding = new Padding(ScaleUi(24), ScaleUi(2), 0, ScaleUi(2)), ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20)), BackColor = Color.FromArgb(237, 243, 252), Font = new Font("맑은 고딕", 11, FontStyle.Regular), Renderer = new EditorMenuRenderer(), AccessibleName = "주 메뉴" };
         header.Controls.Add(menuBar); MainMenuStrip = menuBar;
         void SaveViewSettings() { try { SettingsService.Save(settings); } catch (Exception error) { status.Text = "보기 설정 저장 실패: " + error.Message; } relayout?.Invoke(); }
         var fileMenu = new ToolStripMenuItem("파일");
@@ -80,8 +88,9 @@ public sealed class MainForm : Form
         var filePrint = new ToolStripMenuItem("인쇄", null, (_, _) => PrintImage());
         var fileProperties = new ToolStripMenuItem("이미지 속성", null, (_, _) => ShowImageProperties());
         var fileHelp = new ToolStripMenuItem("도움말", null, (_, _) => { using var dialog = new HelpForm(); dialog.ShowDialog(this); });
-        fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp]);
-        fileMenu.DropDownOpening += (_, _) => fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null;
+        var fileClose = new ToolStripMenuItem("닫기", null, (_, _) => { if (tabs.SelectedIndex >= 0) CloseTab(tabs.SelectedIndex); }) { ShortcutKeyDisplayString = "Ctrl+W" };
+        fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp, new ToolStripSeparator(), fileClose]);
+        fileMenu.DropDownOpening += (_, _) => fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = fileClose.Enabled = Editor != null;
         var editMenu = new ToolStripMenuItem("편집");
         editMenu.Margin = new Padding(0, 0, 10, 0);
         var editCut = new ToolStripMenuItem("잘라내기", null, (_, _) => CutFromMenu()) { ShortcutKeyDisplayString = "Ctrl+X" };
@@ -107,10 +116,13 @@ public sealed class MainForm : Form
         var menuIcons = new List<Bitmap>();
         Bitmap LoadMenuIcon(string name)
         {
-            using var stream = typeof(MainForm).Assembly.GetManifestResourceStream($"DIMPIK.Assets.MenuIcons.{name}.png")
-                ?? throw new InvalidOperationException($"메뉴 아이콘 리소스를 찾을 수 없습니다: {name}");
-            using var decoded = new Bitmap(stream);
-            return new Bitmap(decoded);
+            const int renderScale = 4;
+            int size = 20 * renderScale;
+            var image = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var graphics = Graphics.FromImage(image);
+            graphics.Clear(Color.Transparent);
+            ChromeButton.DrawMenuIcon(graphics, name, new Rectangle(0, 0, size, size), Color.FromArgb(30, 41, 59));
+            return image;
         }
         ToolStripButton MenuAction(string label, string icon, Action action)
         {
@@ -123,10 +135,11 @@ public sealed class MainForm : Form
         saveCommand.Margin = new Padding(0, 0, 24, 0);
         var exportCommand = MenuAction("이미지 내보내기", "export", CopyImage); documentStatusItems.Add(exportCommand);
         exportCommand.Margin = new Padding(0, 0, 20, 0);
-        menuBar.Items.Add(new ToolStripSeparator());
         undoButton = MenuAction("실행 취소", "undo", Undo); undoButton.Margin = new Padding(0, 0, 13, 0);
         redoButton = MenuAction("다시 실행", "redo", Redo);
+        editMenu.DropDownItems.Add(new ToolStripMenuItem("오른쪽으로 90° 회전", null, (_, _) => RotateImageClockwise()));
         var settingsCommand = MenuAction("설정", "settings", OpenSettings); settingsCommand.Alignment = ToolStripItemAlignment.Right;
+        settingsCommand.AutoSize = false; settingsCommand.Size = new Size(ScaleUi(46), ScaleUi(38)); settingsCommand.Margin = Padding.Empty;
         Disposed += (_, _) => { foreach (var image in menuIcons) image.Dispose(); };
         var newButton = HeaderButton("새 캡처", false); newButton.Width = 72; newButton.Height = 78; ((ChromeButton)newButton).IconAboveText = true; newButton.ForeColor = Color.FromArgb(37, 99, 235); var captureMenu = new ContextMenuStrip();
         captureMenu.Items.Add("영역 캡처", null, (_, _) => _ = CaptureAsync(true));
@@ -138,6 +151,7 @@ public sealed class MainForm : Form
         Disposed += (_, _) => captureMenu.Dispose(); headerActions.Controls.Add(newButton); tips.SetToolTip(newButton, "옵션에서 지정한 방식으로 캡처 · 오른쪽 클릭: 캡처 방식 선택");
         var captureOptions = new ChromeButton { ShowDropArrow = true, Width = 24, Height = newButton.Height, BackColor = newButton.BackColor, ForeColor = newButton.ForeColor, Margin = Padding.Empty, AccessibleName = "캡처 방식 선택" };
         captureOptions.Click += (_, _) => captureMenu.Show(newButton, new Point(0, newButton.Height)); headerActions.Controls.Add(captureOptions);
+        headerActions.Controls.Add(new Panel { Width = 1, Height = 62, BackColor = Color.FromArgb(196, 210, 235), Margin = new Padding(8, 10, 8, 0) });
 
 
         void SetInk(Color chosen)
@@ -184,21 +198,17 @@ public sealed class MainForm : Form
             var caption = new Label { Text = title, Dock = DockStyle.Bottom, Height = 18, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(100, 116, 139), Font = new Font("Segoe UI", 8) };
             group.Controls.Add(content); caption.Dispose(); if (inRibbon) ribbon.Controls.Add(group); return content;
         }
-        var toolbarLabelFont = new Font("Segoe UI", 9f);
-        Disposed += (_, _) => toolbarLabelFont.Dispose();
+        var toolbarLabelFont = new Font("맑은 고딕", 9f, FontStyle.Bold);
+        var zoomFont = new Font("Segoe UI", 11f);
+        Disposed += (_, _) => { toolbarLabelFont.Dispose(); zoomFont.Dispose(); };
         Button RibbonButton(string title, string icon, Action action, AnnotationKind? kind = null)
         {
             var button = new ChromeButton { Text = title, IconKey = icon switch { "↖" => "select", "↗" => "arrow", "□" when title == "맞춤" => "fit", "□" => "rectangle", "ellipse" => "ellipse", "rounded-rectangle" => "rounded-rectangle", "line" => "line", "triangle" => "triangle", "T" => "text", "①" => "number", "▰" => "highlight", "−" => "minus", "+" => "plus", _ => "copy" }, IconAboveText = true, IconSize = 24, Width = 60, Height = 76, BackColor = Color.White, ForeColor = Color.FromArgb(51, 65, 85), Font = toolbarLabelFont, Margin = new Padding(1, 0, 1, 0), AccessibleName = title, Tag = kind };
             button.Click += (_, _) => { toolOptionsDropDown?.Close(); Editor?.FinishTextEdit(); Editor?.CancelCrop(); bool selectedShape = Editor?.Selected?.Kind is AnnotationKind.Rectangle or AnnotationKind.Ellipse or AnnotationKind.RoundedRectangle or AnnotationKind.Line or AnnotationKind.Arrow or AnnotationKind.Triangle; if (title != "도형" || !selectedShape) { action(); if (Editor != null) Editor.Document.Selection = null; } RefreshStatus(); };
-            tips.SetToolTip(button, title);
+            tips.SetToolTip(button, kind == AnnotationKind.Number ? "클릭한 위치에 번호를 추가하고 선택 도구로 돌아옵니다." : title);
             if (kind.HasValue || title == "선택") ribbonToolButtons.Add((button, kind));
             return button;
         }
-        var selectGroup = AddRibbonGroup("선택", 110);
-        selectGroup.Padding = new Padding(0, 1, 2, 0);
-        var selectButton = RibbonButton("선택", "↖", () => { if (Editor != null) Editor.Tool = null; });
-        selectButton.Margin = new Padding(0, 0, 1, 0);
-        selectGroup.Controls.Add(selectButton);
         var editGroup = AddRibbonGroup("주석", 530);
         var splitOptionButtons = new List<Button>();
         AnnotationKind popupKind = AnnotationKind.Rectangle;
@@ -227,8 +237,8 @@ public sealed class MainForm : Form
         cropGroup.Controls.Add(cropTool);
         var resizeTool = new ChromeButton { Text = "크기 조절", IconKey = "resize", IconAboveText = true, Width = 64, Height = 76, BackColor = Color.White, AccessibleName = "이미지 크기 조절" };
         resizeTool.Click += (_, _) => ResizeImage(); cropGroup.Controls.Add(resizeTool); documentActions.Add(resizeTool);
-        tips.SetToolTip(mosaicTool, "캡처 이미지 영역을 드래그해 모자이크 · 강도 조절 후 Enter 적용");
-        tips.SetToolTip(blurTool, "캡처 이미지 영역을 드래그해 블러 · 강도 조절 후 Enter 적용");
+        tips.SetToolTip(mosaicTool, "강도를 조절하고 캡처 이미지 영역을 드래그하면 적용됩니다.");
+        tips.SetToolTip(blurTool, "강도를 조절하고 캡처 이미지 영역을 드래그하면 적용됩니다.");
         var regionGroup = AddRibbonGroup("이미지 영역", 350);
         var regionCopy = new ChromeButton { Text = "영역 복사", IconKey = "region-copy", IconAboveText = true, Width = 60, Height = 76, AccessibleName = "선택한 이미지 영역 복사" };
         regionCopy.Click += (_, _) => Editor?.StartCrop(true); regionGroup.Controls.Add(regionCopy);
@@ -240,12 +250,17 @@ public sealed class MainForm : Form
         tips.SetToolTip(regionCopy, "드래그를 놓으면 영역 자동 복사 · Esc: 취소");
         tips.SetToolTip(regionPaste, "클립보드 이미지를 이동 가능한 객체로 붙여넣기 (Ctrl+V)");
         var colorGroup = AddRibbonGroup("색상", 240, false);
-        foreach (var swatch in new[] { Color.Black, Color.FromArgb(239, 68, 68), Color.FromArgb(249, 115, 22), Color.FromArgb(250, 204, 21), Color.FromArgb(34, 197, 94), Color.FromArgb(37, 99, 235), Color.FromArgb(147, 51, 234) })
+        Color[] paletteColors =
+        [
+            Color.FromArgb(15, 15, 15), Color.FromArgb(112, 112, 112), Color.FromArgb(180, 0, 40), Color.FromArgb(239, 44, 54), Color.FromArgb(245, 130, 32), Color.FromArgb(255, 231, 0),
+            Color.White, Color.FromArgb(194, 194, 194), Color.FromArgb(177, 111, 76), Color.FromArgb(235, 151, 172), Color.FromArgb(239, 177, 103), Color.FromArgb(237, 210, 132)
+        ];
+        foreach (var swatch in paletteColors)
         {
-            var chip = new ColorSwatch { Width = 26, Height = 26, SwatchColor = swatch, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(2), AccessibleName = $"색상 #{swatch.R:X2}{swatch.G:X2}{swatch.B:X2}" };
+            var chip = new ColorSwatch { Width = 21, Height = 21, SwatchColor = swatch, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(2), AccessibleName = $"색상 #{swatch.R:X2}{swatch.G:X2}{swatch.B:X2}" };
             chip.Click += (_, _) => SetInk(swatch); colorGroup.Controls.Add(chip); swatches.Add(chip);
         }
-        var customColor = new ChromeButton { Text = "", IconKey = "plus", Width = 26, Height = 26, BackColor = Color.White, ForeColor = Color.FromArgb(37, 99, 235), Margin = new Padding(2), AccessibleName = "사용자 지정 색상" };
+        var customColor = new ChromeButton { Text = "", IconKey = "color-wheel", Width = 36, Height = 36, IconSize = 36, BackColor = Color.White, ForeColor = Color.FromArgb(37, 99, 235), Margin = Padding.Empty, AccessibleName = "사용자 지정 색상" };
         customColor.Click += (_, _) =>
         {
             var popup = toolOptionsDropDown;
@@ -253,7 +268,8 @@ public sealed class MainForm : Form
             try { using var picker = new ColorDialog { Color = Editor?.Ink ?? currentInk, FullOpen = true }; if (picker.ShowDialog(this) == DialogResult.OK) SetInk(picker.Color); }
             finally { if (popup is { IsDisposed: false }) popup.AutoClose = true; }
         };
-        colorGroup.Controls.Add(customColor);
+        colorGroup.Parent!.Controls.Add(customColor);
+        customColor.SetBounds(158, 20, 36, 36);
         var properties = new FlowLayoutPanel { Size = new Size(340, 340), FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(16, 12, 16, 12), BackColor = Color.White };
         Label SectionTitle(string text) => new() { Text = text, AutoSize = false, Width = 292, Height = 20, Margin = new Padding(0, 2, 0, 3), ForeColor = Color.FromArgb(31, 41, 55), Font = new Font("Segoe UI", 9, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft };
         var shapeTitle = SectionTitle("도형 종류");
@@ -291,8 +307,8 @@ public sealed class MainForm : Form
             return choice;
         }
         shapeRow.Controls.AddRange(shapeChoices.Values.Cast<Control>().ToArray());
-        colorGroup.Parent!.Width = 316; colorGroup.Parent.Height = 48; colorGroup.Parent.Padding = Padding.Empty;
-        colorGroup.Width = 300; colorGroup.Height = 46; colorGroup.WrapContents = true; colorGroup.Padding = Padding.Empty;
+        colorGroup.Parent!.Width = 202; colorGroup.Parent.Height = 76; colorGroup.Parent.Padding = Padding.Empty;
+        colorGroup.Dock = DockStyle.None; colorGroup.SetBounds(0, 0, 150, 76); colorGroup.WrapContents = true; colorGroup.Padding = Padding.Empty;
         var thicknessTitle = SectionTitle("선 굵기");
         var fill = new CheckBox { Text = "채우기", AutoSize = true, Margin = new Padding(8, 7, 8, 0) };
         var dashed = new CheckBox { Text = "점선", AutoSize = true, Margin = new Padding(8, 7, 8, 0) };
@@ -322,7 +338,7 @@ public sealed class MainForm : Form
         selectedLabel = new Label { Text = "선택", Width = 70, Height = 30, TextAlign = ContentAlignment.MiddleLeft, Visible = false };
         properties.Controls.Add(selectedLabel);
         var cropApply = new ChromeButton { Text = "자르기 적용", IconKey = "check", Primary = true, Width = 138, Height = 32, Visible = false };
-        cropApply.Click += (_, _) => { if (Editor?.RegionCopyMode == true) CopyRegion(); else if (Editor?.PixelEffect != null) ApplyPixelEffect(); else ApplyCrop(); };
+        cropApply.Click += (_, _) => { if (Editor?.RegionCopyMode == true) CopyRegion(); else ApplyCrop(); };
         var cropCancel = new ChromeButton { Text = "취소", IconKey = "close", Width = 84, Height = 32, BackColor = Color.White, Visible = false };
         cropCancel.Click += (_, _) => Editor?.CancelCrop();
         var cropSize = new Label { AutoSize = true, Visible = false, Margin = new Padding(8, 7, 0, 0) };
@@ -331,8 +347,7 @@ public sealed class MainForm : Form
         effectStrength.ValueChanged += (_, _) => { if (!updatingInspector) Editor?.SetEffectStrength((int)effectStrength.Value); };
         effectStrength.KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; ApplyPixelEffect(); Editor?.Focus(); }
-            else if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; Editor?.CancelCrop(); Editor?.Focus(); }
+            if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; Editor?.CancelCrop(); Editor?.Focus(); }
         };
         void ApplyStyle()
         {
@@ -379,10 +394,10 @@ public sealed class MainForm : Form
         fontRow.Controls.Add(fontSizeLabel); fontRow.Controls.Add(fontSize); fontRow.Controls.Add(bold);
         properties.Controls.AddRange([thicknessRow, fillSeparator, fillTitle, fillRow, fontRow]);
         propertyPalette.Parent?.Controls.Remove(propertyPalette);
-        propertyPalette.Size = new Size(128, 76); propertyPalette.Margin = new Padding(4, 0, 4, 0);
+        propertyPalette.Size = new Size(202, 76); propertyPalette.Margin = new Padding(4, 0, 4, 0);
         colorGroup.WrapContents = true; colorGroup.Padding = Padding.Empty;
         var sizeGroup = AddRibbonGroup("크기", 66, false);
-        var sizeButton = new ChromeButton { Text = "크기", IconKey = "line-width", IconAboveText = true, ShowDropArrow = true, IconSize = 24, Width = 58, Height = 76, Font = toolbarLabelFont, AccessibleName = "선 크기" };
+        var sizeButton = new ChromeButton { Text = "크기", IconKey = "line-width", IconAboveText = true, ShowDropArrow = true, IconSize = 28, Width = 58, Height = 76, Font = toolbarLabelFont, AccessibleName = "선 크기" };
         sizeGroup.Controls.Add(sizeButton);
         var sizeMenu = new ContextMenuStrip();
         sizeOptionsMenu = sizeMenu;
@@ -421,10 +436,11 @@ public sealed class MainForm : Form
             mosaicTool.Selected = Editor?.PixelEffect == PixelEffectKind.Mosaic;
             blurTool.Selected = Editor?.PixelEffect == PixelEffectKind.Blur;
             regionCopy.Selected = Editor?.RegionCopyMode == true;
-            cropApply.Text = Editor?.RegionCopyMode == true ? "영역 복사" : Editor?.PixelEffect is { } effect ? effect == PixelEffectKind.Mosaic ? "모자이크 적용" : "블러 적용" : "자르기 적용";
+            cropApply.Text = Editor?.RegionCopyMode == true ? "영역 복사" : "자르기 적용";
             bool cropping = Editor?.CropMode == true;
             selectedLabel.Visible = false;
-            cropApply.Visible = cropCancel.Visible = cropSize.Visible = cropping;
+            cropApply.Visible = cropCancel.Visible = cropping;
+            cropSize.Visible = cropping || Editor?.PixelEffect != null;
             if (Editor?.RegionCopyMode == true) cropApply.Visible = false;
             effectLabel.Visible = effectStrength.Visible = Editor?.PixelEffect != null;
             if (Editor?.PixelEffect != null)
@@ -432,7 +448,9 @@ public sealed class MainForm : Form
                 updatingInspector = true; try { effectStrength.Value = Editor.EffectStrength; } finally { updatingInspector = false; }
             }
             cropApply.Enabled = Editor?.CanApplyCrop == true;
-            cropSize.Text = Editor?.RegionCopyMode == true
+            cropSize.Text = Editor?.PixelEffect is { } activeEffect
+                ? $"드래그하여 {(activeEffect == PixelEffectKind.Mosaic ? "모자이크" : "블러")} 영역 지정 · 놓으면 적용 · Esc 취소"
+                : Editor?.RegionCopyMode == true
                 ? (Editor.CanApplyCrop ? $"{Editor.CropBounds.Width} × {Editor.CropBounds.Height} px · 놓으면 자동 복사 / Esc 취소" : "복사할 영역을 드래그하세요 · 놓으면 자동 복사 / Esc 취소")
                 : Editor?.CanApplyCrop == true ? $"{Editor.CropBounds.Width} × {Editor.CropBounds.Height} px · Enter 적용 / Esc 취소" : "영역을 드래그하세요 · Esc 취소";
             if (Editor is not { } ed)
@@ -472,7 +490,7 @@ public sealed class MainForm : Form
             help.Visible = false;
             help.Text = a?.Kind is AnnotationKind.Text or AnnotationKind.Number ? "더블클릭: 수정 · Delete: 삭제"
                 : a != null ? "드래그: 이동 · 핸들: 크기 조절"
-                : kind == AnnotationKind.Number ? "클릭: 연속 번호 추가 · Esc: 선택"
+                : kind == AnnotationKind.Number ? "클릭한 위치에 번호를 추가합니다."
                 : kind == AnnotationKind.Text ? "클릭: 텍스트 입력 · Ctrl+Enter: 확정"
                 : kind != null ? "드래그로 주석 추가 · Esc: 선택" : "객체를 클릭해 선택하거나 편집 도구를 고르세요";
             updatingInspector = true;
@@ -533,8 +551,8 @@ public sealed class MainForm : Form
             if (IsHandleCreated) BeginInvoke(new Action(RestoreViewport));
         }
         var hint = new Label { Text = "도구를 고르고 캔버스에서 드래그해 주석을 추가하세요.", Dock = DockStyle.None, Height = 28, ForeColor = Color.FromArgb(100, 116, 139), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8) };
-        var workspace = new Panel { BackColor = Color.FromArgb(234, 240, 250) };
-        var centerHost = new Panel { Dock = DockStyle.None, BackColor = Color.FromArgb(234, 240, 250) };
+        var workspace = new Panel { BackColor = Color.FromArgb(200, 224, 252) };
+        var centerHost = new Panel { Dock = DockStyle.None, BackColor = Color.White };
         var welcome = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(241, 245, 249) };
         var welcomeContent = new Panel { Size = new Size(640, 142), BackColor = Color.Transparent };
         var welcomeTitle = new Label { Text = "캡처하고, 바로 편집하세요", Font = new Font("Segoe UI Semibold", 19, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42), TextAlign = ContentAlignment.MiddleCenter };
@@ -571,7 +589,7 @@ public sealed class MainForm : Form
         centerHost.Controls.Add(tabStrip); tabStrip.BringToFront();
         void PositionPlusTab()
         {
-            tabStrip.SetBounds(0, 0, centerHost.ClientSize.Width, 40);
+            tabStrip.SetBounds(0, 0, centerHost.ClientSize.Width, tabStrip.PreferredHeight);
             tabStrip.Visible = tabs.TabCount > 0;
             tabStrip.BringToFront();
         }
@@ -590,27 +608,44 @@ public sealed class MainForm : Form
             if (clipboard.PasteImage(editor.Document, image))
             { editor.CancelCrop(); editor.Tool = null; editor.NotifyEdit(); RefreshStatus(); }
         });
-        Bitmap StatusIcon(string key)
+        Bitmap StatusIcon(string key, int slotSize, int glyphSize)
         {
-            var bitmap = new Bitmap(20, 20);
+            const int renderScale = 4;
+            int size = slotSize * renderScale;
+            int glyph = glyphSize * renderScale;
+            var bitmap = new Bitmap(size, size);
             using var graphics = Graphics.FromImage(bitmap);
-            ChromeButton.DrawIcon(graphics, key, new Rectangle(0, 0, 20, 20), Color.FromArgb(30, 41, 59));
+            ChromeButton.DrawIcon(graphics, key, new Rectangle((size - glyph) / 2, (size - glyph) / 2, glyph, glyph), Color.FromArgb(30, 41, 59), 1.5f);
             return bitmap;
         }
-        var infoIcon = StatusIcon("image"); var fitIcon = StatusIcon("fit"); var fullScreenIcon = StatusIcon("fullscreen");
-        Disposed += (_, _) => { infoIcon.Dispose(); fitIcon.Dispose(); fullScreenIcon.Dispose(); };
-        var bar = new StatusStrip { Dock = DockStyle.None, AutoSize = false, BackColor = Color.FromArgb(244, 247, 252), SizingGrip = false, Padding = new Padding(12, 2, 12, 2) };
-        var imageInfo = new ToolStripStatusLabel { Image = infoIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, AccessibleName = "이미지 정보" };
-        bar.Items.Add(imageInfo); documentStatusItems.Add(imageInfo); bar.Items.Add(status);
-        var fitButton = new ToolStripButton { Image = fitIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, ToolTipText = "화면 맞춤 (Ctrl+0)", AccessibleName = "화면 맞춤" };
-        fitButton.Click += (_, _) => Fit(); bar.Items.Add(fitButton); documentStatusItems.Add(fitButton);
-        var zoomDown = new ToolStripButton("−"); zoomDown.Click += (_, _) => Zoom(.8f); bar.Items.Add(zoomDown); documentStatusItems.Add(zoomDown);
-        zoomIndicator = new ToolStripDropDownButton("100%") { DisplayStyle = ToolStripItemDisplayStyle.Text, AccessibleName = "확대 비율" };
+        var infoIcon = StatusIcon("image", 20, 18); var zoomDownIcon = StatusIcon("zoom-minus", 20, 20); var zoomUpIcon = StatusIcon("zoom-plus", 20, 20); var fullScreenIcon = StatusIcon("fullscreen", 22, 20);
+        Disposed += (_, _) => { infoIcon.Dispose(); zoomDownIcon.Dispose(); zoomUpIcon.Dispose(); fullScreenIcon.Dispose(); };
+        var bar = new StatusStrip { Renderer = new EditorStatusRenderer(), Dock = DockStyle.None, AutoSize = false, BackColor = Color.FromArgb(232, 240, 253), SizingGrip = false, Padding = new Padding(ScaleUi(12), ScaleUi(2), ScaleUi(12), ScaleUi(2)), ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20)) };
+        DpiChanged += (_, _) =>
+        {
+            menuBar.ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20));
+            settingsCommand.Size = new Size(ScaleUi(46), ScaleUi(38));
+            menuBar.Padding = new Padding(ScaleUi(24), ScaleUi(2), 0, ScaleUi(2));
+            bar.ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20));
+            bar.Padding = new Padding(ScaleUi(12), ScaleUi(2), ScaleUi(12), ScaleUi(2));
+            relayout?.Invoke();
+        };
+        var imageInfo = imageInfoStatus = new ToolStripStatusLabel { Image = infoIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, AccessibleName = "이미지 정보" };
+        var dimensionsInfo = dimensionsStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleLeft, AccessibleName = "이미지 픽셀 크기" };
+        var metadataSeparator = imageMetadataSeparator = new ToolStripSeparator { AutoSize = false, Width = ScaleUi(1), Margin = new Padding(ScaleUi(16), ScaleUi(6), ScaleUi(16), ScaleUi(6)) };
+        var fileSizeInfo = fileSizeStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleLeft, AccessibleName = "파일 크기" };
+        bar.Items.AddRange([imageInfo, dimensionsInfo, metadataSeparator, fileSizeInfo, status]);
+        documentStatusItems.AddRange([imageInfo, dimensionsInfo, metadataSeparator, fileSizeInfo]);
+        var zoomDown = new ToolStripButton { Image = zoomDownIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, ToolTipText = "축소", AccessibleName = "축소", Margin = new Padding(ScaleUi(4), 0, ScaleUi(2), 0) };
+        zoomDown.Click += (_, _) => Zoom(.8f); bar.Items.Add(zoomDown); documentStatusItems.Add(zoomDown);
+        zoomIndicator = new ToolStripDropDownButton("100%") { DisplayStyle = ToolStripItemDisplayStyle.Text, AccessibleName = "확대 비율", Font = zoomFont, Margin = new Padding(ScaleUi(2), 0, ScaleUi(2), 0) };
         foreach (int percent in new[] { 25, 50, 75, 100, 125, 150, 200 })
             zoomIndicator.DropDownItems.Add($"{percent}%", null, (_, _) => { if (Editor is { } ed) Zoom(percent / 100f / ed.Document.Zoom); });
         zoomIndicator.DropDownItems.Add("화면 맞춤", null, (_, _) => Fit());
         bar.Items.Add(zoomIndicator); documentStatusItems.Add(zoomIndicator);
-        var zoomUp = new ToolStripButton("+"); zoomUp.Click += (_, _) => Zoom(1.25f); bar.Items.Add(zoomUp); documentStatusItems.Add(zoomUp);
+        var zoomUp = new ToolStripButton { Image = zoomUpIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, ToolTipText = "확대", AccessibleName = "확대", Margin = new Padding(ScaleUi(2), 0, ScaleUi(8), 0) };
+        zoomUp.Click += (_, _) => Zoom(1.25f); bar.Items.Add(zoomUp); documentStatusItems.Add(zoomUp);
+        bar.Items.Add(new ToolStripSeparator { AutoSize = false, Width = ScaleUi(1), Margin = new Padding(ScaleUi(12), ScaleUi(6), ScaleUi(12), ScaleUi(6)) });
         var fullScreenButton = new ToolStripButton { Image = fullScreenIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, ToolTipText = "전체 화면 (F11)", AccessibleName = "전체 화면" };
         fullScreenButton.Click += (_, _) => ToggleFullScreen(); bar.Items.Add(fullScreenButton);
         var shell = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
@@ -638,18 +673,18 @@ public sealed class MainForm : Form
         headerActions.Controls.Add(sizeGroup.Parent!); headerActions.Controls.SetChildIndex(sizeGroup.Parent!, effectsIndex + 1);
         var toolTitles = ribbonToolButtons.ToDictionary(item => item.Button, item => item.Button.Text);
         var headerTitles = headerActions.Controls.OfType<ChromeButton>().ToDictionary(button => button, button => (button.Text, button.Width));
+        foreach (var button in headerActions.Controls.OfType<ChromeButton>()) button.BackColor = toolbarCard.BackColor;
+        headerActions.BackColor = toolbarCard.BackColor;
         var toolbarOrder = headerActions.Controls.Cast<Control>().ToArray();
-        var toolbarGroups = new[] { selectGroup.Parent!, editGroup.Parent!, propertyPalette, sizeGroup.Parent!, effectsGroup.Parent!, cropGroup.Parent!, regionGroup.Parent! };
+        var toolbarGroups = new[] { editGroup.Parent!, propertyPalette, sizeGroup.Parent!, effectsGroup.Parent!, cropGroup.Parent!, regionGroup.Parent! };
         var toolbarSeparators = headerActions.Controls.OfType<Panel>().Where(panel => panel.Width == 1).ToArray();
-        var sizedGroups = new[] { selectGroup, editGroup, sizeGroup, effectsGroup, cropGroup, regionGroup };
+        var sizedGroups = new[] { editGroup, sizeGroup, effectsGroup, cropGroup, regionGroup };
         bool groupsInLeftRail = false;
-        bool compactIconToolbar = false;
-        int LabelWidth(string text) => Math.Max(44, TextRenderer.MeasureText(text, toolbarLabelFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width + 8);
         void LayoutShell()
         {
             int w = shell.ClientSize.Width, h = shell.ClientSize.Height;
             bool leftTools = settings.ShowToolbar && settings.ToolbarPosition == "Left" && tabs.TabCount > 0;
-            bool compact = w < 1300;
+            bool compact = false;
             resizeTool.Visible = true;
             if (leftTools != groupsInLeftRail)
             {
@@ -666,85 +701,81 @@ public sealed class MainForm : Form
                 groupsInLeftRail = leftTools;
             }
             foreach (var separator in toolbarSeparators) separator.Visible = !leftTools;
-            void SizeToolbar(bool iconsOnly)
+            void SizeToolbar()
             {
                 foreach (var (button, _) in ribbonToolButtons)
                 {
-                    button.Text = leftTools || iconsOnly ? "" : toolTitles[button];
-                    button.Height = leftTools ? 76 : iconsOnly ? 52 : 76;
-                    button.Width = leftTools ? 44 : iconsOnly ? button == shapeButton ? 44 : 36 : LabelWidth(button.Text) + (button == shapeButton ? 10 : 0);
+                    button.Text = leftTools || compact ? "" : toolTitles[button];
+                    button.Height = ScaleUi(compact && !leftTools ? 52 : 76);
+                    button.Width = leftTools || compact ? ScaleUi(44) : ScaleUi(60);
                 }
-        foreach (var button in new[] { rotateTool, cropTool, mosaicTool, blurTool, resizeTool, regionCopy, regionPaste, clipboardToggle })
+                foreach (var button in new[] { rotateTool, cropTool, mosaicTool, blurTool, resizeTool, regionCopy, regionPaste, clipboardToggle })
                 {
                     button.IconSize = 24; button.Font = toolbarLabelFont;
-                    button.Height = leftTools ? 76 : iconsOnly ? 52 : 76;
+                    button.Height = ScaleUi(compact && !leftTools ? 52 : 76);
                     if (button != clipboardToggle)
-                        button.Text = leftTools || iconsOnly ? "" : button == rotateTool ? "90° 회전" : button == cropTool ? "자르기" : button == mosaicTool ? "모자이크" : button == blurTool ? "블러" : button == resizeTool ? "크기 조절" : button == regionPaste ? "붙여넣기" : "영역 복사";
-                    button.Width = leftTools ? 44 : iconsOnly ? 36 : LabelWidth(button.Text);
+                        button.Text = leftTools || compact ? "" : button == rotateTool ? "90° 회전" : button == cropTool ? "자르기" : button == mosaicTool ? "모자이크" : button == blurTool ? "블러" : button == resizeTool ? "크기 조절" : button == regionPaste ? "붙여넣기" : "영역 복사";
+                    button.Width = leftTools || compact ? ScaleUi(44) : ScaleUi(68);
                 }
-                sizeButton.Text = iconsOnly && !leftTools ? "" : "크기";
-                sizeButton.Width = iconsOnly && !leftTools ? 44 : 58;
-                sizeButton.Height = leftTools ? 76 : iconsOnly ? 52 : 76;
+                sizeButton.Text = "크기";
+                sizeButton.Width = ScaleUi(58);
+                sizeButton.Height = ScaleUi(compact && !leftTools ? 52 : 76);
                 foreach (var (button, originalHeader) in headerTitles)
                 {
                     if (!button.IconAboveText || button.Parent != headerActions) continue;
                     button.IconSize = 24;
-                    button.Text = iconsOnly ? "" : originalHeader.Text;
-                    button.Height = iconsOnly ? 52 : 78;
-                    button.Width = iconsOnly ? 40 : button == newButton ? compact ? 60 : 72 : LabelWidth(originalHeader.Text);
+                    button.Text = originalHeader.Text;
+                    button.Height = ScaleUi(compact && !leftTools ? 52 : 78);
+                    button.Width = ScaleUi(originalHeader.Width);
                     if (button != newButton) button.Font = toolbarLabelFont;
                 }
                 foreach (var group in sizedGroups)
                 {
-                    group.Parent!.Height = leftTools ? group == selectGroup ? 48 : group == editGroup ? 240 : 94 : iconsOnly ? 56 : 76;
+                    group.Parent!.Height = leftTools ? group == editGroup ? ScaleUi(240) : ScaleUi(94) : ScaleUi(compact ? 52 : 76);
                     // Ancestors are hidden during capture; calculate intrinsic widths regardless of visibility.
                     group.Parent.Width = leftTools ? 156 : group.Padding.Horizontal + group.Controls.Cast<Control>()
-                        .Where(control => control != clipboardToggle)
-                        .Sum(control => control.Width + control.Margin.Horizontal) + 4;
-                    group.Width = leftTools ? 150 : group.Parent.Width;
+                        .Where(control => control != clipboardToggle && control != regionPaste && control != rotateTool)
+                        .Sum(control => control.Width + control.Margin.Horizontal) + ScaleUi(4);
+                    group.Width = leftTools ? ScaleUi(150) : group.Parent.Width;
                     group.WrapContents = leftTools; group.AutoScroll = false;
                 }
             }
-            regionPaste.Visible = true; clipboardToggle.Visible = false;
-            foreach (var option in splitOptionButtons) option.Width = compact ? 14 : 16;
-            foreach (var separator in toolbarSeparators) separator.Margin = compact ? new Padding(1, 12, 1, 0) : new Padding(5, 12, 5, 0);
-            selectGroup.Parent!.Visible = editGroup.Parent!.Visible = effectsGroup.Parent!.Visible = cropGroup.Parent!.Visible = regionGroup.Parent!.Visible = true;
-            propertyPalette.Size = new Size(leftTools ? 150 : 128, 76); colorGroup.WrapContents = true;
-            headerActions.Padding = compact ? new Padding(0, 4, 0, 0) : new Padding(0, 1, 0, 0);
-            int FullButtonWidth(Control control)
+            regionPaste.Visible = false; clipboardToggle.Visible = false; rotateTool.Visible = false;
+            foreach (var option in splitOptionButtons) option.Width = ScaleUi(compact ? 14 : 16);
+            foreach (var separator in toolbarSeparators) separator.Margin = compact ? new Padding(ScaleUi(1), ScaleUi(12), ScaleUi(1), 0) : new Padding(ScaleUi(5), ScaleUi(12), ScaleUi(5), 0);
+            editGroup.Parent!.Visible = effectsGroup.Parent!.Visible = cropGroup.Parent!.Visible = regionGroup.Parent!.Visible = true;
+            propertyPalette.Size = new Size(ScaleUi(238), ScaleUi(76));
+            colorGroup.Dock = DockStyle.None; colorGroup.SetBounds(0, 0, ScaleUi(188), ScaleUi(76)); colorGroup.WrapContents = true;
+            customColor.SetBounds(ScaleUi(192), 0, ScaleUi(36), ScaleUi(36));
+            customColor.BringToFront();
+            foreach (var chip in swatches)
             {
-                if (control is Button button && toolTitles.TryGetValue(button, out var title)) return LabelWidth(title) + (button == shapeButton ? 10 : 0);
-                if (control == rotateTool) return LabelWidth("90° 회전");
-                if (control == cropTool) return LabelWidth("자르기");
-                if (control == mosaicTool) return LabelWidth("모자이크");
-                if (control == blurTool) return LabelWidth("블러");
-                if (control == resizeTool) return LabelWidth("크기 조절");
-                if (control == regionCopy) return LabelWidth("영역 복사");
-                if (control == regionPaste) return LabelWidth("붙여넣기");
-                if (control == sizeButton) return 58;
-                if (control == newButton) return compact ? 60 : 72;
-                return control.Width;
+                chip.Size = new Size(ScaleUi(26), ScaleUi(22));
+                chip.Margin = new Padding(ScaleUi(2));
             }
-            int FullGroupWidth(Control control)
-            {
-                var group = sizedGroups.FirstOrDefault(candidate => candidate.Parent == control);
-                return group == null ? FullButtonWidth(control) : group.Padding.Horizontal + group.Controls.Cast<Control>()
-                    .Where(child => child != clipboardToggle)
-                    .Sum(child => FullButtonWidth(child) + child.Margin.Horizontal) + 4;
-            }
-            int requiredWidth = headerActions.Padding.Horizontal + headerActions.Controls.Cast<Control>()
-                .Where(control => !leftTools || control is not Panel panel || !toolbarSeparators.Contains(panel))
-                .Sum(control => FullGroupWidth(control) + control.Margin.Horizontal);
-            bool iconsOnly = !leftTools && requiredWidth > Math.Max(0, w - 36);
-            compactIconToolbar = iconsOnly;
-            propertyPalette.Height = iconsOnly ? 60 : 76;
-            captureOptions.Height = iconsOnly ? 52 : 76;
+            int paletteTop = colorGroup.Top + colorGroup.Padding.Top;
+            int paletteRowsHeight = 2 * (ScaleUi(22) + 2 * ScaleUi(2));
+            customColor.Top = paletteTop + (paletteRowsHeight - customColor.Height) / 2;
+            headerActions.Padding = compact ? new Padding(0, ScaleUi(4), 0, 0) : new Padding(0, ScaleUi(1), 0, 0);
+            propertyPalette.Height = ScaleUi(76);
+            captureOptions.Height = ScaleUi(76);
             foreach (var group in sizedGroups)
                 foreach (Control child in group.Controls)
-                    if (child != clipboardToggle) child.Height = iconsOnly ? 52 : 76;
+                    if (child != clipboardToggle) child.Height = ScaleUi(76);
             headerActions.SuspendLayout(); ribbon.SuspendLayout();
             foreach (var group in sizedGroups) group.SuspendLayout();
-            try { SizeToolbar(iconsOnly); }
+            try
+            {
+                SizeToolbar();
+                int requiredWidth = headerActions.Controls.Cast<Control>()
+                    .Where(control => control != captureOptions || control.Visible)
+                    .Sum(control => control.Width + control.Margin.Horizontal) + ScaleUi(32);
+                compact = !leftTools && requiredWidth > w;
+                propertyPalette.Height = ScaleUi(compact ? 52 : 76);
+                colorGroup.Height = propertyPalette.Height;
+                captureOptions.Height = ScaleUi(compact ? 52 : 76);
+                if (compact) SizeToolbar();
+            }
             finally
             {
                 foreach (var group in sizedGroups) group.ResumeLayout(true);
@@ -756,24 +787,27 @@ public sealed class MainForm : Form
             ribbon.Padding = Padding.Empty;
             headerActions.PerformLayout();
             ribbon.PerformLayout();
-            int toolbarHeight = settings.ShowToolbar ? compactIconToolbar ? 110 : 136 : 32;
-            int statusHeight = settings.ShowStatusBar ? 44 : 0;
+            headerActions.WrapContents = false;
+            headerActions.AutoScroll = compact && !leftTools;
+            int toolbarHeight = settings.ShowToolbar ? ScaleUi(compact ? 118 : 144) : ScaleUi(42);
+            int statusHeight = settings.ShowStatusBar ? ScaleUi(44) : 0;
             bar.Visible = settings.ShowStatusBar; toolbarCard.Visible = settings.ShowToolbar;
-            int galleryHeight = settings.ShowGallery && tabs.TabCount > 0 ? 112 : 0;
+            int galleryHeight = settings.ShowGallery && tabs.TabCount > 0 ? ScaleUi(112) : 0;
             gallery.Visible = galleryHeight > 0;
 
             ribbonPanel.Visible = leftTools;
 
             hint.Visible = false;
             header.Bounds = new Rectangle(0, 0, w, toolbarHeight);
-            menuBar.Bounds = new Rectangle(0, 0, w, 32);
-            toolbarCard.Bounds = new Rectangle(10, 35, Math.Max(0, w - 20), compactIconToolbar ? 72 : 98);
-            headerActions.Bounds = new Rectangle(8, 4, Math.Max(0, toolbarCard.ClientSize.Width - 16), compactIconToolbar ? 60 : 90);
+            menuBar.Bounds = new Rectangle(0, 0, w, ScaleUi(42));
+            int toolbarCardHeight = ScaleUi(compact ? 76 : 102);
+            toolbarCard.Bounds = new Rectangle(0, ScaleUi(42), w, toolbarCardHeight);
+            headerActions.Bounds = new Rectangle(ScaleUi(24), ScaleUi(compact ? 4 : 12), Math.Max(0, toolbarCard.ClientSize.Width - ScaleUi(32)), ScaleUi(compact ? 72 : 88));
             ribbonPanel.Bounds = leftTools
-                ? new Rectangle(0, toolbarHeight, 164, Math.Max(0, h - toolbarHeight - statusHeight - galleryHeight))
+                ? new Rectangle(0, toolbarHeight, ScaleUi(164), Math.Max(0, h - toolbarHeight - statusHeight - galleryHeight))
                 : Rectangle.Empty;
             workspace.Bounds = leftTools
-                ? new Rectangle(164, toolbarHeight, Math.Max(0, w - 164), Math.Max(0, h - toolbarHeight - statusHeight - galleryHeight))
+                ? new Rectangle(ScaleUi(164), toolbarHeight, Math.Max(0, w - ScaleUi(164)), Math.Max(0, h - toolbarHeight - statusHeight - galleryHeight))
                 : new Rectangle(0, toolbarHeight, w, Math.Max(0, h - toolbarHeight - statusHeight - galleryHeight));
             gallery.Bounds = new Rectangle(0, Math.Max(0, h - statusHeight - galleryHeight), w, galleryHeight);
             bar.Bounds = new Rectangle(0, Math.Max(0, h - statusHeight), w, statusHeight);
@@ -788,10 +822,47 @@ public sealed class MainForm : Form
                 regionClipboard.BringToFront();
             }
         }
-        relayout = LayoutShell;
         shell.Resize += (_, _) => LayoutShell();
-        Shown += (_, _) => LayoutShell();
+        shell.Dock = DockStyle.None;
         Controls.Add(shell);
+        FormBorderStyle = FormBorderStyle.None;
+        var titleBar = new EditorTitleBar(this) { Dock = DockStyle.None };
+        Controls.Add(titleBar);
+        var resizeInput = new WindowResizeBorder(this);
+        Disposed += (_, _) => resizeInput.Dispose();
+        bool layingOutWindow = false;
+        void LayoutWindow()
+        {
+            if (layingOutWindow || IsDisposed) return;
+            layingOutWindow = true;
+            try
+            {
+                titleBar.SetBounds(0, 0, ClientSize.Width, ScaleUi(32));
+                shell.SetBounds(0, titleBar.Bottom, ClientSize.Width, Math.Max(0, ClientSize.Height - titleBar.Bottom));
+                LayoutShell();
+            }
+            finally { layingOutWindow = false; }
+        }
+        relayout = LayoutWindow;
+        Layout += (_, _) => LayoutWindow();
+        ClientSizeChanged += (_, _) => LayoutWindow();
+        void ConstrainWindow()
+        {
+            if (WindowState == FormWindowState.Normal)
+            {
+                var area = Screen.FromControl(this).WorkingArea;
+                MinimumSize = new Size(Math.Min(ScaleUi(900), area.Width), Math.Min(ScaleUi(500), area.Height));
+                int width = Math.Min(Width, area.Width), height = Math.Min(Height, area.Height);
+                Bounds = new Rectangle(Math.Clamp(Left, area.Left, area.Right - width),
+                    Math.Clamp(Top, area.Top, area.Bottom - height), width, height);
+            }
+            LayoutWindow();
+        }
+        Shown += (_, _) => BeginInvoke(new Action(ConstrainWindow));
+        ResizeEnd += (_, _) => ConstrainWindow();
+        // WinForms scales child bounds after DpiChanged; apply final geometry after that pass.
+        DpiChanged += (_, _) => { if (IsHandleCreated) BeginInvoke(new Action(ConstrainWindow)); };
+        LayoutWindow();
         tabs.SelectedIndexChanged += (_, _) => { RefreshStatus(); relayout?.Invoke(); };
         var menu = new ContextMenuStrip();
         menu.Items.Add("딤픽 열기", null, (_, _) => Restore());
@@ -933,7 +1004,7 @@ public sealed class MainForm : Form
     {
         string name = document.Name;
         var page = new TabPage(CaptureNames.TabTitle(name) + " ●") { Tag = document };
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.FromArgb(234, 240, 250), Padding = new Padding(16) };
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(16) };
         var editor = new EditorCanvas(document) { Location = new Point(16, 16), Ink = currentInk, Stroke = currentStroke, ShowGrid = settings.ShowGrid };
         editor.SetFillColor(currentFillColor);
         editor.SetStyleOptions(currentFilled, currentDashed, currentTextSize, currentBold);
@@ -1055,7 +1126,6 @@ public sealed class MainForm : Form
         if (Editor == null) return;
         Editor.FinishTextEdit();
         clipboard.CopyImage(Editor.Document);
-        Editor.ShowCopyFeedback();
         status.Text = "✓ 캡처 이미지가 클립보드에 복사되었습니다. Ctrl+V로 붙여넣으세요.";
     });
     private void Undo()
@@ -1109,7 +1179,6 @@ public sealed class MainForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         Guard(() => { editor.FinishTextEdit(); editor.CancelCrop(); if (editor.Document.ResizeImage(new Size((int)widthInput.Value, (int)heightInput.Value))) { ResetCanvasViewport(editor); RefreshStatus(); } });
     }
-    private void ApplyPixelEffect() => Guard(() => { if (Editor?.ApplyPixelEffect() == true) RefreshStatus(); });
     private static void ResetCanvasViewport(EditorCanvas editor)
     {
         editor.UpdateSize();
@@ -1148,7 +1217,9 @@ public sealed class MainForm : Form
             var screen = Screen.FromControl(this);
             windowedBorder = FormBorderStyle; windowedState = WindowState;
             windowedBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
-            WindowState = FormWindowState.Normal; FormBorderStyle = FormBorderStyle.None; Bounds = screen.Bounds; fullScreen = true;
+            WindowState = FormWindowState.Normal; FormBorderStyle = FormBorderStyle.None;
+        MaximizedBounds = Screen.FromControl(this).WorkingArea;
+        LocationChanged += (_, _) => { if (WindowState == FormWindowState.Normal) MaximizedBounds = Screen.FromControl(this).WorkingArea; }; Bounds = screen.Bounds; fullScreen = true;
         }
         else
         {
@@ -1170,7 +1241,15 @@ public sealed class MainForm : Form
     {
         regionClipboard.SetPasteEnabled(Editor != null);
         foreach (TabPage page in tabs.TabPages) page.Text = CaptureNames.TabTitle(Document(page).Name) + (Document(page).Dirty ? " ●" : "");
-        status.Text = Editor is { } e ? $"{e.Document.Image.Width} × {e.Document.Image.Height} px    |    PNG" : "영역 또는 전체 화면을 캡처하세요.";
+        bool hasDocument = Editor is { };
+        imageInfoStatus!.Visible = dimensionsStatus!.Visible = imageMetadataSeparator!.Visible = fileSizeStatus!.Visible = hasDocument;
+        if (Editor is { } e)
+        {
+            dimensionsStatus.Text = $"{e.Document.Image.Width} × {e.Document.Image.Height} px";
+            fileSizeStatus.Text = $"파일 크기: {FormatFileSize(GetPngByteSize(e.Document))}";
+            status.Text = string.Empty;
+        }
+        else status.Text = "영역 또는 전체 화면을 캡처하세요.";
         if (zoomIndicator != null) zoomIndicator.Text = Editor is { } current ? $"{current.Document.Zoom:P0}" : "100%";
         foreach (var action in documentActions) action.Enabled = Editor != null;
         if (undoButton != null) undoButton.Enabled = Editor?.Document.CanUndo == true;
@@ -1252,6 +1331,28 @@ public sealed class MainForm : Form
             throw;
         }
     }
+
+    private long GetPngByteSize(CaptureDocument document)
+    {
+        if (!document.Dirty && document.SavePath is { } path && File.Exists(path))
+            return new FileInfo(path).Length;
+        if (ReferenceEquals(measuredSizeDocument, document) && measuredSizeRevision == document.Revision &&
+            string.Equals(measuredSizeSavePath, document.SavePath, StringComparison.OrdinalIgnoreCase))
+            return measuredPngBytes;
+
+        using var composed = document.Compose();
+        using var encoded = new MemoryStream();
+        composed.Save(encoded, System.Drawing.Imaging.ImageFormat.Png);
+        measuredSizeDocument = document;
+        measuredSizeRevision = document.Revision;
+        measuredSizeSavePath = document.SavePath;
+        measuredPngBytes = encoded.Length;
+        return measuredPngBytes;
+    }
+
+    private static string FormatFileSize(long bytes) => bytes >= 1024L * 1024
+        ? $"{bytes / (1024d * 1024d):0.#} MB"
+        : bytes >= 1024 ? $"{Math.Round(bytes / 1024d):0} KB" : $"{bytes} B";
     private string? ApplyOptions(AppSettings updated)
     {
         var oldRegion = settings.RegionHotkey; var oldFull = settings.FullscreenHotkey;
@@ -1281,8 +1382,62 @@ public sealed class MainForm : Form
         relayout?.Invoke(); RefreshStatus();
         return null;
     }
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var parameters = base.CreateParams;
+            parameters.Style |= 0x00020000 | 0x00010000; // Minimize/maximize without the native thick frame.
+            return parameters;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowMinMaxInfo
+    {
+        public Point Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize;
+    }
+
     protected override void WndProc(ref Message m)
     {
+        if (m.Msg == 0x24 && FormBorderStyle == FormBorderStyle.None)
+        {
+            base.WndProc(ref m);
+            var screen = Screen.FromHandle(Handle);
+            var area = fullScreen ? screen.Bounds : screen.WorkingArea;
+            var limits = Marshal.PtrToStructure<WindowMinMaxInfo>(m.LParam);
+            limits.MaxPosition = new Point(area.Left - screen.Bounds.Left, area.Top - screen.Bounds.Top);
+            limits.MaxSize = new Point(area.Width, area.Height);
+            Marshal.StructureToPtr(limits, m.LParam, false);
+            m.Result = IntPtr.Zero;
+            return;
+        }
+        if (m.Msg == 0x83 && FormBorderStyle == FormBorderStyle.None)
+        {
+            m.Result = IntPtr.Zero; // Keep the custom title bar while retaining native resizing styles.
+            return;
+        }
+        if (m.Msg == 0xA3 && m.WParam.ToInt32() == 2 && FormBorderStyle == FormBorderStyle.None)
+        {
+            WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
+            return;
+        }
+        if (m.Msg == 0x84 && FormBorderStyle == FormBorderStyle.None)
+        {
+            base.WndProc(ref m);
+            var point = PointToClient(new Point(unchecked((short)m.LParam.ToInt64()), unchecked((short)(m.LParam.ToInt64() >> 16))));
+            int edge = ScaleUi(5);
+            bool left = point.X < edge, right = point.X >= ClientSize.Width - edge;
+            bool top = point.Y < edge, bottom = point.Y >= ClientSize.Height - edge;
+            int hit = top ? left ? 13 : right ? 14 : 12 : bottom ? left ? 16 : right ? 17 : 15 : left ? 10 : right ? 11 : 0;
+            if (hit != 0 && WindowState == FormWindowState.Normal) m.Result = (IntPtr)1; // Edge input is handled without a native frame.
+            else if (!fullScreen && Controls.OfType<EditorTitleBar>().FirstOrDefault() is { } title && title.Bounds.Contains(point))
+            {
+                var child = title.GetChildAtPoint(new Point(point.X - title.Left, point.Y - title.Top));
+                if (child is not Button) m.Result = (IntPtr)2; // HTCAPTION: native dragging and double-click messages.
+            }
+            return;
+        }
         if (m.Msg == 0x8000 + 41)
         {
             if (!Enabled || OwnedForms.Any(form => form.Visible)) return;
@@ -1319,7 +1474,6 @@ public sealed class MainForm : Form
             case Keys.Control | Keys.D0: Fit(); return true;
             case Keys.Control | Keys.D: Editor?.DuplicateSelection(); return true;
             case Keys.Enter when Editor?.RegionCopyMode == true: CopyRegion(); return true;
-            case Keys.Enter when Editor?.PixelEffect != null: ApplyPixelEffect(); return true;
             case Keys.Enter when Editor?.CropMode == true: ApplyCrop(); return true;
             case Keys.F11: ToggleFullScreen(); return true;
             case Keys.Escape when fullScreen && Editor?.CropMode != true: ToggleFullScreen(); return true;

@@ -25,6 +25,7 @@ public sealed class SelectionForm : Form
         FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual;
         Bounds = bounds; BackColor = Color.Black; TopMost = true; Cursor = Cursors.Cross;
         DoubleBuffered = true; KeyPreview = true; ShowInTaskbar = false;
+        Shown += (_, _) => { Activate(); Focus(); };
         pointer = Clamp(PointToClient(System.Windows.Forms.Cursor.Position));
     }
     private Point Clamp(Point p) => new(Math.Clamp(p.X, 0, desktop.Width), Math.Clamp(p.Y, 0, desktop.Height));
@@ -62,8 +63,13 @@ public sealed class SelectionForm : Form
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.KeyCode == Keys.Escape) { e.Handled = true; CancelSelection(); }
+        if (e.KeyCode == Keys.Escape) { e.Handled = true; e.SuppressKeyPress = true; CancelSelection(); }
         else if (dragging && e.KeyCode == Keys.ShiftKey) { UpdateSelection(); Invalidate(); }
+    }
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if ((keyData & Keys.KeyCode) == Keys.Escape) { CancelSelection(); return true; }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
     protected override void OnKeyUp(KeyEventArgs e)
     {

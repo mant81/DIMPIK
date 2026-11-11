@@ -169,7 +169,10 @@ public static class SessionService
                     a.Points.Any(p => !ValidNumber(p.X, 0, 1) || !ValidNumber(p.Y, 0, 1)) ||
                     (a.Kind == AnnotationKind.Pen && a.Points.Count < 2))
                     throw new InvalidDataException("세션의 펜 경로가 올바르지 않습니다.");
-                if (a.Kind is AnnotationKind.Image or AnnotationKind.PixelPatch) Image(a.ImageData);
+                if (a.Kind == AnnotationKind.Image || (a.Kind == AnnotationKind.PixelPatch && a.EffectKind == null)) Image(a.ImageData);
+                if (a.Kind == AnnotationKind.PixelPatch && a.EffectKind is { } effect &&
+                    (!Enum.IsDefined(effect) || a.EffectStrength is < 2 or > 64))
+                    throw new InvalidDataException("세션의 모자이크/블러 설정이 올바르지 않습니다.");
             }
         }
         foreach (var doc in state.Documents)

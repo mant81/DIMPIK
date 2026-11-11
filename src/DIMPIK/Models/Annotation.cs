@@ -23,7 +23,9 @@ public sealed record Annotation
     public List<PointF> Points { get; set; } = [];
     // Encoded pixels are immutable and shared safely by undo snapshots.
     public string ImageData { get; init; } = "";
-    public bool IsSelectable => Kind != AnnotationKind.PixelPatch;
+    public Services.PixelEffectKind? EffectKind { get; init; }
+    public int EffectStrength { get; init; } = 12;
+    public bool IsSelectable => true;
 
     public Annotation Copy(bool newIdentity = false) => this with { Id = newIdentity ? Guid.NewGuid() : Id, Points = [.. Points] };
 
@@ -50,6 +52,7 @@ public sealed record Annotation
                 using (var image = Services.ImageSafety.LoadBase64(ImageData)) g.DrawImage(image, b);
                 break;
             case AnnotationKind.PixelPatch:
+                if (EffectKind is not null) break;
                 var state = g.Save();
                 try
                 {

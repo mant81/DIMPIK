@@ -61,9 +61,8 @@ public sealed class CaptureGallery : UserControl
                     float scale = Math.Min(120f / Document.Image.Width, 58f / Document.Image.Height);
                     g.TranslateTransform((120 - Document.Image.Width * scale) / 2, (58 - Document.Image.Height * scale) / 2);
                     g.ScaleTransform(scale, scale); g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(Document.Image, 0, 0, Document.Image.Width, Document.Image.Height);
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    foreach (var annotation in Document.Annotations) annotation.Draw(g);
+                    using var composed = Document.Compose();
+                    g.DrawImage(composed, 0, 0, Document.Image.Width, Document.Image.Height);
                 }
                 catch { next.Dispose(); throw; }
                 thumbnail?.Dispose(); thumbnail = next; revision = Document.Revision;

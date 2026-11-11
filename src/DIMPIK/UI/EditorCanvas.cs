@@ -37,22 +37,11 @@ public sealed partial class EditorCanvas : Control
     private bool editingNew;
     private NumericUpDown? numberEditor;
     private Annotation? editingNumber;
-    private readonly System.Windows.Forms.Timer copyFeedbackTimer = new() { Interval = 1400 };
-    private bool showCopyFeedback;
 
     public EditorCanvas(CaptureDocument document)
     {
         Document = document; DoubleBuffered = true; TabStop = true; BackColor = Color.White;
-        copyFeedbackTimer.Tick += (_, _) => { copyFeedbackTimer.Stop(); showCopyFeedback = false; Invalidate(); };
-        Disposed += (_, _) => copyFeedbackTimer.Dispose();
         UpdateSize();
-    }
-    public void ShowCopyFeedback()
-    {
-        showCopyFeedback = true;
-        copyFeedbackTimer.Stop();
-        copyFeedbackTimer.Start();
-        Invalidate();
     }
     public void UpdateSize()
     {
@@ -75,16 +64,14 @@ public sealed partial class EditorCanvas : Control
         base.OnPaint(e);
         var state = e.Graphics.Save();
         e.Graphics.ScaleTransform(Document.Zoom, Document.Zoom);
-        e.Graphics.DrawImage(Document.Image, 0, 0, Document.Image.Width, Document.Image.Height);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        foreach (var a in Document.Annotations) if (a != editingAnnotation) a.Draw(e.Graphics);
-        if (effectPreview != null)
-        {
-            var previewState = e.Graphics.Save(); e.Graphics.CompositingMode = CompositingMode.SourceCopy;
-            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor; e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-            e.Graphics.DrawImage(effectPreview, CropBounds); e.Graphics.Restore(previewState);
-        }
+        using var composed = Document.Compose(editingAnnotation);
+        e.Graphics.DrawImage(composed, 0, 0, Document.Image.Width, Document.Image.Height);
         draft?.Draw(e.Graphics);
+        if (draft?.EffectKind != null)
+        {
+            using var effectOutline = new Pen(Color.FromArgb(37, 99, 235), 1 / Document.Zoom) { DashStyle = DashStyle.Dash };
+            e.Graphics.DrawRectangle(effectOutline, draft.Bounds.X, draft.Bounds.Y, draft.Bounds.Width, draft.Bounds.Height);
+        }
         if (ShowGrid) DrawGrid(e.Graphics);
         if (CropMode) PaintCrop(e.Graphics);
         else if (Selected is { } selected && textEditor == null)
@@ -102,7 +89,6 @@ public sealed partial class EditorCanvas : Control
             }
         }
         e.Graphics.Restore(state);
-        if (showCopyFeedback) PaintCopyFeedback(e.Graphics);
     }
     private void DrawGrid(Graphics graphics)
     {
@@ -115,32 +101,18 @@ public sealed partial class EditorCanvas : Control
         for (float y = (float)Math.Ceiling(bounds.Top / spacing) * spacing; y <= bounds.Bottom; y += spacing)
             graphics.DrawLine(pen, bounds.Left, y, bounds.Right, y);
     }
-    private void PaintCopyFeedback(Graphics graphics)
-    {
-        const string message = "✓  이미지 복사 완료   ·   Ctrl+V";
-        using var font = new Font("Segoe UI", 11, FontStyle.Bold);
-        var size = graphics.MeasureString(message, font);
-        float width = size.Width + 36, height = 42;
-        var bounds = new RectangleF((ClientSize.Width - width) / 2, 20, width, height);
-        using var path = new GraphicsPath();
-        float radius = 12;
-        path.AddArc(bounds.Left, bounds.Top, radius * 2, radius * 2, 180, 90);
-        path.AddArc(bounds.Right - radius * 2, bounds.Top, radius * 2, radius * 2, 270, 90);
-        path.AddArc(bounds.Right - radius * 2, bounds.Bottom - radius * 2, radius * 2, radius * 2, 0, 90);
-        path.AddArc(bounds.Left, bounds.Bottom - radius * 2, radius * 2, radius * 2, 90, 90);
-        path.CloseFigure();
-        using var fill = new SolidBrush(Color.FromArgb(232, 37, 99, 235));
-        using var text = new SolidBrush(Color.White);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.FillPath(fill, path);
-        graphics.DrawString(message, font, text, bounds, new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center });
-    }
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
         FinishTextEdit(); Focus(); start = ImagePoint(e.Location); checkpointed = false;
         if (CropMode) { BeginCropDrag(start); return; }
+        if (PixelEffect is { } effect)
+        {
+            Document.Selection = null;
+            draft = new Annotation { Kind = AnnotationKind.PixelPatch, EffectKind = effect, EffectStrength = EffectStrength, Bounds = new(start.X, start.Y, 1, 1) };
+            Capture = true; Invalidate(); return;
+        }
         if (Tool == AnnotationKind.Number && Document.Annotations.LastOrDefault(a => a.IsSelectable && a.Bounds.Contains(start)) is { Kind: AnnotationKind.Number } existing)
         {
             Document.Selection = existing.Id; Tool = null;
@@ -244,7 +216,7 @@ public sealed partial class EditorCanvas : Control
         {
             MoveCropPointer(ImagePoint(e.Location)); Capture = false;
             if (RegionCopyMode && CanApplyCrop) RegionCopyRequested?.Invoke(this, EventArgs.Empty);
-            RefreshEffectPreview(); return;
+            return;
         }
         if (draft?.Kind == AnnotationKind.Pen) UpdatePenDraft(ImagePoint(e.Location));
         Capture = false;
@@ -257,7 +229,7 @@ public sealed partial class EditorCanvas : Control
         {
             a.Bounds = new(a.Bounds.X, a.Bounds.Y, Math.Max(1, a.Bounds.Width), Math.Max(1, a.Bounds.Height));
             Document.Checkpoint(); Document.Annotations.Add(a); Document.Selection = a.Id;
-            if (a.Kind != AnnotationKind.Number) Tool = null;
+            Tool = null; PixelEffect = null; Cursor = Cursors.Default;
             NotifyEdit(); SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
         draft = null; penPoints = null; Invalidate();

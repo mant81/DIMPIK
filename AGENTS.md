@@ -15,7 +15,7 @@ Current implementation originated as **ACapdo v0.8**, then ASnapdo. Rename ident
 - C# / .NET 8 / Windows Forms (initial v0.8 source).
 - Project file: `src/DIMPIK/DIMPIK.csproj`.
 - Build: `dotnet build src/DIMPIK/DIMPIK.csproj -c Release` on Windows.
-- Publish: run `build-exe.cmd` on Windows; output `release\app\DIMPIK.exe` (native resident launcher) and `release\app\editor\` (editor EXE/DLL). Build the installer with `build-installer.ps1`; output `release\setup\dimpik_inst_x64_1.0.4.exe`. Default installation is Program Files\DIMPIK and requires administrator approval. See PRODUCT_SPEC.md for the idle memory budget and session lifecycle.
+- Publish: run `build-exe.cmd` on Windows; output `release\app\DIMPIK.exe` (native resident launcher) and `release\app\editor\` (editor EXE/DLL). Build the installer with `build-installer.ps1`; output `release\setup\dimpik_inst_x64_1.0.5.exe`. Default installation is Program Files\DIMPIK and requires administrator approval. See PRODUCT_SPEC.md for the idle memory budget and session lifecycle.
 - Visual reference: `docs/design/ui-concept-reference.png` (concept, not an actual application screenshot).
 - The DIMPIK editor was built and smoke-tested on Windows on 2026-11-08. Native tray and installer artifacts still require rebuild and validation before release.
 

@@ -96,35 +96,47 @@ public sealed class CaptureDocument : IDisposable
         undo.Push(new(Annotations, Image)); ClearStack(redo);
         Image = rotated; Annotations = annotations; Selection = null; Changed(); return true;
     }
-    public Bitmap Compose()
+    public Bitmap Compose(Annotation? exclude = null)
     {
         var result = new Bitmap(Image);
-        using var g = Graphics.FromImage(result);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        foreach (var annotation in Annotations) annotation.Draw(g);
-        return result;
+        try
+        {
+            foreach (var annotation in Annotations)
+            {
+                if (ReferenceEquals(annotation, exclude)) continue;
+                if (annotation.Kind == AnnotationKind.PixelPatch && annotation.EffectKind is { } effect)
+                {
+                    var region = Rectangle.Intersect(new Rectangle(Point.Empty, result.Size), Rectangle.Round(annotation.Bounds));
+                    if (region.Width < 1 || region.Height < 1) continue;
+                    using var patch = Services.PixelEffectService.Create(result, region, effect, annotation.EffectStrength);
+                    using var effectGraphics = Graphics.FromImage(result);
+                    effectGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    effectGraphics.DrawImageUnscaled(patch, region.Location);
+                }
+                else
+                {
+                    using var g = Graphics.FromImage(result);
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    annotation.Draw(g);
+                }
+            }
+            return result;
+        }
+        catch { result.Dispose(); throw; }
     }
     public bool ApplyPixelEffect(Rectangle region, Services.PixelEffectKind effect, int strength)
     {
         region.Intersect(new Rectangle(Point.Empty, Image.Size));
         if (region.Width < 1 || region.Height < 1) return false;
-        using var patch = PreviewPixelEffect(region, effect, strength);
-        // A committed raster edit covers the composited region while keeping other objects editable.
-        var edit = new Annotation { Kind = AnnotationKind.PixelPatch, Bounds = region, ImageData = Encode(patch) };
-        Checkpoint(); Annotations.Add(edit); Selection = null; Changed(); return true;
+        var edit = new Annotation { Kind = AnnotationKind.PixelPatch, Bounds = region, EffectKind = effect, EffectStrength = Math.Clamp(strength, 2, 64) };
+        Checkpoint(); Annotations.Add(edit); Selection = edit.Id; Changed(); return true;
     }
     public Bitmap PreviewPixelEffect(Rectangle region, Services.PixelEffectKind effect, int strength)
     {
         region.Intersect(new Rectangle(Point.Empty, Image.Size));
         if (region.Width < 1 || region.Height < 1) throw new ArgumentException("효과를 적용할 영역이 없습니다.");
-        using var composed = new Bitmap(region.Width, region.Height);
-        using (var g = Graphics.FromImage(composed))
-        {
-            g.TranslateTransform(-region.X, -region.Y); g.DrawImageUnscaled(Image, Point.Empty);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            foreach (var annotation in Annotations) annotation.Draw(g);
-        }
-        return Services.PixelEffectService.Create(composed, new Rectangle(Point.Empty, region.Size), effect, strength);
+        using var composed = Compose();
+        return Services.PixelEffectService.Create(composed, region, effect, strength);
     }
     internal SessionDocument ExportSession()
     {

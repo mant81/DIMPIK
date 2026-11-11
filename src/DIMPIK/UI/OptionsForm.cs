@@ -76,7 +76,7 @@ public sealed class OptionsForm : Form
         autoSave.CheckedChanged += (_, _) => UpdateFolderState(); UpdateFolderState();
         Label("캡처 직후 원본을 저장합니다. 편집 결과는 Ctrl+S로 저장하세요.");
         layout = Page("일반");
-        var startup = new CheckBox { Text = "Windows 로그인 시 자동 실행", AutoSize = true, Checked = runAtLogin == true, Enabled = runAtLogin.HasValue, AccessibleName = "자동 실행" };
+        var startup = new CheckBox { Text = "Windows 로그인 시 자동 실행", AutoSize = true, Checked = runAtLogin ?? true, Enabled = runAtLogin.HasValue, AccessibleName = "자동 실행" };
         layout.Controls.Add(startup);
         Label(runAtLogin.HasValue ? "로그인하면 트레이에서 조용히 대기합니다. 캡처할 때만 편집기를 실행합니다." : "설치형 버전에서 자동 실행을 설정할 수 있습니다.");
         var showGallery = new CheckBox { Text = "하단 캡처 갤러리 표시", Checked = settings.ShowGallery, AutoSize = true, AccessibleName = "캡처 갤러리" };
