@@ -38,14 +38,15 @@ public sealed class ChromeButton : Button
     protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
     protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
     protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+    private int ScaleMetric(int value) => Math.Max(1, (int)Math.Round(value * DeviceDpi / 96f));
 
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics; g.Clear(OpaqueBackground(this)); g.SmoothingMode = SmoothingMode.AntiAlias;
         var bounds = new Rectangle(0, 0, Math.Max(0, Width - 1), Math.Max(0, Height - 1));
         var fill = Primary ? (pressed ? Color.FromArgb(29, 78, 216) : hovered ? Color.FromArgb(29, 78, 216) : Color.FromArgb(37, 99, 235))
-            : Selected ? Color.FromArgb(231, 240, 255) : pressed ? Color.FromArgb(226, 232, 240) : hovered ? Color.FromArgb(241, 245, 249) : BackColor;
-        using var path = Rounded(bounds, Math.Min(8, Math.Min(Width, Height) / 3));
+            : Selected ? Color.FromArgb(196, 214, 255) : pressed ? Color.FromArgb(226, 232, 240) : hovered ? Color.FromArgb(231, 240, 255) : IconAboveText ? OpaqueBackground(this) : BackColor;
+        using var path = Rounded(bounds, Math.Min(ScaleMetric(8), Math.Min(Width, Height) / 3));
         using var background = new SolidBrush(fill); g.FillPath(background, path);
         if (Selected || Focused && ShowFocusCues)
         {
@@ -53,43 +54,43 @@ public sealed class ChromeButton : Button
         }
         var foreground = !Enabled ? Color.FromArgb(148, 163, 184) : Primary ? Color.White : Selected ? Color.FromArgb(37, 99, 235) : ForeColor;
         bool hasIcon = !string.IsNullOrEmpty(IconKey);
-        int iconSize = Math.Min(IconSize, Math.Max(12, Height - 12));
+        int iconSize = Math.Min(ScaleMetric(IconSize), Math.Max(ScaleMetric(12), Height - ScaleMetric(12)));
         if (!hasIcon && TextAtBottom)
         {
-            TextRenderer.DrawText(g, Text, Font, new Rectangle(0, Math.Max(0, Height - 18), Width, Math.Min(18, Height)), foreground,
+            TextRenderer.DrawText(g, Text, Font, new Rectangle(0, Math.Max(0, Height - ScaleMetric(18)), Width, Math.Min(ScaleMetric(18), Height)), foreground,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
         }
         else if (IconAboveText && hasIcon)
         {
             bool arrowBesideIcon = ShowDropArrow && string.IsNullOrEmpty(Text);
-            int iconY = string.IsNullOrEmpty(Text) ? (Height - iconSize) / 2 : 7;
-            DrawIcon(g, IconKey, new Rectangle((Width - iconSize - (arrowBesideIcon ? 8 : 0)) / 2, iconY, iconSize, iconSize), foreground);
-            var textBounds = new Rectangle(2, iconSize + 8, Width - 4, Math.Max(0, Height - iconSize - 10));
+            int iconY = string.IsNullOrEmpty(Text) ? (Height - iconSize) / 2 : ScaleMetric(7);
+            DrawIcon(g, IconKey, new Rectangle((Width - iconSize - (arrowBesideIcon ? ScaleMetric(8) : 0)) / 2, iconY, iconSize, iconSize), foreground);
+            var textBounds = new Rectangle(ScaleMetric(2), iconSize + ScaleMetric(8), Width - ScaleMetric(4), Math.Max(0, Height - iconSize - ScaleMetric(10)));
             if (ShowDropArrow && !string.IsNullOrEmpty(Text))
             {
-                int textWidth = Math.Min(Width - 16, TextRenderer.MeasureText(Text, Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width);
-                int textLeft = (Width - textWidth - 10) / 2;
+                int textWidth = Math.Min(Width - ScaleMetric(16), TextRenderer.MeasureText(Text, Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width);
+                int textLeft = (Width - textWidth - ScaleMetric(10)) / 2;
                 textBounds = new Rectangle(textLeft, textBounds.Y, textWidth, textBounds.Height);
                 using var arrow = new SolidBrush(foreground);
-                int x = textBounds.Right + 6, y = textBounds.Top + textBounds.Height / 2;
-                g.FillPolygon(arrow, [new Point(x - 3, y - 2), new Point(x + 3, y - 2), new Point(x, y + 2)]);
+                int x = textBounds.Right + ScaleMetric(6), y = textBounds.Top + textBounds.Height / 2;
+                g.FillPolygon(arrow, [new Point(x - ScaleMetric(3), y - ScaleMetric(2)), new Point(x + ScaleMetric(3), y - ScaleMetric(2)), new Point(x, y + ScaleMetric(2))]);
             }
             TextRenderer.DrawText(g, Text, Font, textBounds, foreground,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
         }
         else
         {
-            int iconX = string.IsNullOrEmpty(Text) ? (Width - iconSize) / 2 : 11;
+            int iconX = string.IsNullOrEmpty(Text) ? (Width - iconSize) / 2 : ScaleMetric(11);
             if (hasIcon) DrawIcon(g, IconKey, new Rectangle(iconX, (Height - iconSize) / 2, iconSize, iconSize), foreground);
-            int left = hasIcon ? iconX + iconSize + 7 : 0;
-            TextRenderer.DrawText(g, Text, Font, new Rectangle(left, 0, Math.Max(0, Width - left - 6), Height), foreground,
+            int left = hasIcon ? iconX + iconSize + ScaleMetric(7) : 0;
+            TextRenderer.DrawText(g, Text, Font, new Rectangle(left, 0, Math.Max(0, Width - left - ScaleMetric(6)), Height), foreground,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | (hasIcon ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter) | TextFormatFlags.NoPadding);
         }
         if (ShowDropArrow && (!IconAboveText || string.IsNullOrEmpty(Text)))
         {
             using var arrow = new SolidBrush(foreground);
-            int x = Width - 12, y = IconAboveText ? 7 + iconSize / 2 : Height / 2;
-            g.FillPolygon(arrow, [new Point(x - 4, y - 3), new Point(x + 4, y - 3), new Point(x, y + 3)]);
+            int x = Width - ScaleMetric(12), y = IconAboveText ? ScaleMetric(7) + iconSize / 2 : Height / 2;
+            g.FillPolygon(arrow, [new Point(x - ScaleMetric(4), y - ScaleMetric(3)), new Point(x + ScaleMetric(4), y - ScaleMetric(3)), new Point(x, y + ScaleMetric(3))]);
         }
     }
 
@@ -106,10 +107,22 @@ public sealed class ChromeButton : Button
         path.AddArc(r.Left, r.Top, d, d, 180, 90); path.AddArc(r.Right - d, r.Top, d, d, 270, 90);
         path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); path.AddArc(r.Left, r.Bottom - d, d, d, 90, 90); path.CloseFigure(); return path;
     }
-    internal static void DrawIcon(Graphics g, string key, Rectangle r, Color color)
+    private static Color HueColor(int hue)
     {
-        var state = g.Save(); g.TranslateTransform(r.X, r.Y); g.ScaleTransform(r.Width / 20f, r.Height / 20f);
-        using var pen = new Pen(color, 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        double h = (hue % 360) / 60d, x = 1 - Math.Abs(h % 2 - 1);
+        (double r, double g, double b) = h switch
+        {
+            < 1 => (1d, x, 0d), < 2 => (x, 1d, 0d), < 3 => (0d, 1d, x),
+            < 4 => (0d, x, 1d), < 5 => (x, 0d, 1d), _ => (1d, 0d, x)
+        };
+        return Color.FromArgb((int)(r * 255), (int)(g * 255), (int)(b * 255));
+    }
+    internal static void DrawIcon(Graphics g, string key, Rectangle r, Color color, float strokeWidth = 1.8f)
+    {
+        var state = g.Save();
+        g.SmoothingMode = SmoothingMode.AntiAlias; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.TranslateTransform(r.X, r.Y); g.ScaleTransform(r.Width / 20f, r.Height / 20f);
+        using var pen = new Pen(color, strokeWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         using var brush = new SolidBrush(color);
         switch (key)
         {
@@ -124,12 +137,10 @@ public sealed class ChromeButton : Button
                 g.DrawRectangle(pen, 3, 3, 14, 14);
                 break;
             case "region-copy":
-                pen.DashStyle = DashStyle.Dash;
-                g.DrawRectangle(pen, 2, 2, 11, 11);
-                pen.DashStyle = DashStyle.Solid;
-                g.DrawRectangle(pen, 8, 8, 10, 10);
+                pen.DashStyle = DashStyle.Dot;
+                using (var selection = Rounded(new Rectangle(3, 3, 14, 14), 2)) g.DrawPath(pen, selection);
                 break;
-            case "capture": g.DrawRectangle(pen, 3, 3, 14, 14); g.DrawLine(pen, 7, 1, 7, 5); g.DrawLine(pen, 1, 7, 5, 7); g.DrawLine(pen, 13, 15, 13, 19); g.DrawLine(pen, 15, 13, 19, 13); break;
+            case "capture": pen.DashStyle = DashStyle.Dash; g.DrawRectangle(pen, 3, 3, 14, 14); break;
             case "monitor": g.DrawRectangle(pen, 2, 3, 16, 11); g.DrawLine(pen, 10, 14, 10, 17); g.DrawLine(pen, 6, 18, 14, 18); break;
             case "select": g.DrawPolygon(pen, [new Point(4, 2), new Point(4, 15), new Point(7, 12), new Point(10, 18), new Point(13, 16), new Point(10, 11), new Point(15, 11)]); break;
             case "arrow": g.DrawLine(pen, 3, 17, 17, 3); g.DrawLines(pen, [new Point(9, 3), new Point(17, 3), new Point(17, 11)]); break;
@@ -147,42 +158,85 @@ public sealed class ChromeButton : Button
                 break;
             case "line": g.DrawLine(pen, 3, 17, 17, 3); break;
             case "line-width":
-                g.DrawLine(pen, 3, 4, 17, 4);
-                using (var medium = new Pen(color, 2.5f)) g.DrawLine(medium, 3, 10, 17, 10);
-                using (var thick = new Pen(color, 4f)) g.DrawLine(thick, 3, 17, 17, 17);
+                for (int i = 0; i < 3; i++)
+                {
+                    float y = 5 + i * 5;
+                    g.DrawBezier(pen, 2, y, 6, y - 3, 8, y + 3, 11, y);
+                    g.DrawBezier(pen, 11, y, 14, y - 3, 16, y + 3, 18, y);
+                }
                 break;
             case "triangle": g.DrawPolygon(pen, [new Point(10, 3), new Point(18, 17), new Point(2, 17)]); break;
             case "text": g.DrawLine(pen, 3, 4, 17, 4); g.DrawLine(pen, 10, 4, 10, 17); g.DrawLine(pen, 7, 17, 13, 17); break;
             case "number": g.DrawEllipse(pen, 2, 2, 16, 16); using (var f = new Font("Segoe UI", 9, FontStyle.Bold, GraphicsUnit.Pixel)) g.DrawString("1", f, brush, 7, 4); break;
             case "highlight": g.DrawPolygon(pen, [new Point(3, 14), new Point(12, 4), new Point(16, 8), new Point(7, 18), new Point(3, 18)]); g.DrawLine(pen, 2, 19, 18, 19); break;
             case "open": g.DrawLines(pen, [new Point(2, 6), new Point(2, 16), new Point(17, 16), new Point(19, 8), new Point(6, 8), new Point(4, 16)]); g.DrawLines(pen, [new Point(2, 6), new Point(7, 6), new Point(9, 8)]); break;
-            case "save": g.DrawRectangle(pen, 3, 2, 14, 16); g.DrawRectangle(pen, 6, 2, 8, 5); g.DrawRectangle(pen, 6, 11, 8, 7); break;
+            case "save":
+                g.DrawLines(pen, [new PointF(3, 1.8f), new PointF(14.2f, 1.8f), new PointF(17.8f, 5), new PointF(17.8f, 18.2f), new PointF(2.2f, 18.2f), new PointF(2.2f, 2.6f), new PointF(3, 1.8f)]);
+                g.DrawLines(pen, [new PointF(6, 2), new PointF(6, 8), new PointF(14, 8), new PointF(14, 2)]);
+                g.DrawRectangle(pen, 5.5f, 12, 9, 6);
+                break;
+            case "export":
+                g.DrawLines(pen, [new PointF(12.5f, 5), new PointF(19, 5), new PointF(19, 11.5f)]);
+                g.DrawLine(pen, 18.5f, 5.5f, 10.5f, 13.5f);
+                g.DrawLines(pen, [new PointF(8.7f, 6.2f), new PointF(3.5f, 6.2f), new PointF(2.2f, 7.5f), new PointF(2.2f, 18.7f), new PointF(14.6f, 18.7f), new PointF(16, 17.4f), new PointF(16, 13.5f)]);
+                break;
             case "copy": g.DrawRectangle(pen, 6, 5, 11, 13); g.DrawLines(pen, [new Point(3, 14), new Point(3, 2), new Point(13, 2)]); break;
-            case "undo": g.DrawArc(pen, 4, 5, 12, 12, 180, 190); g.DrawLines(pen, [new Point(4, 10), new Point(4, 5), new Point(9, 5)]); break;
-            case "redo": g.DrawArc(pen, 4, 5, 12, 12, -10, 190); g.DrawLines(pen, [new Point(16, 10), new Point(16, 5), new Point(11, 5)]); break;
+            case "undo":
+                g.DrawLines(pen, [new PointF(8, 4), new PointF(3, 8.5f), new PointF(8, 13)]);
+                using (var undoPath = new GraphicsPath())
+                {
+                    undoPath.AddLine(4, 8.5f, 11.5f, 8.5f);
+                    undoPath.AddBezier(11.5f, 8.5f, 15.2f, 8.5f, 17.2f, 10.2f, 17.2f, 13.5f);
+                    undoPath.AddBezier(17.2f, 13.5f, 17.2f, 16.5f, 14.8f, 18, 11.8f, 18);
+                    g.DrawPath(pen, undoPath);
+                }
+                break;
+            case "redo":
+                g.DrawLines(pen, [new PointF(12, 4), new PointF(17, 8.5f), new PointF(12, 13)]);
+                using (var redoPath = new GraphicsPath())
+                {
+                    redoPath.AddLine(16, 8.5f, 8.5f, 8.5f);
+                    redoPath.AddBezier(8.5f, 8.5f, 4.8f, 8.5f, 2.8f, 10.2f, 2.8f, 13.5f);
+                    redoPath.AddBezier(2.8f, 13.5f, 2.8f, 16.5f, 5.2f, 18, 8.2f, 18);
+                    g.DrawPath(pen, redoPath);
+                }
+                break;
             case "minus": g.DrawLine(pen, 4, 10, 16, 10); break;
             case "plus": g.DrawLine(pen, 4, 10, 16, 10); g.DrawLine(pen, 10, 4, 10, 16); break;
-            case "fit": g.DrawLines(pen, [new Point(3, 7), new Point(3, 3), new Point(7, 3)]); g.DrawLines(pen, [new Point(13, 3), new Point(17, 3), new Point(17, 7)]); g.DrawLines(pen, [new Point(17, 13), new Point(17, 17), new Point(13, 17)]); g.DrawLines(pen, [new Point(7, 17), new Point(3, 17), new Point(3, 13)]); break;
-            case "fullscreen": g.DrawLines(pen, [new Point(2, 7), new Point(2, 2), new Point(7, 2)]); g.DrawLines(pen, [new Point(13, 2), new Point(18, 2), new Point(18, 7)]); g.DrawLines(pen, [new Point(18, 13), new Point(18, 18), new Point(13, 18)]); g.DrawLines(pen, [new Point(7, 18), new Point(2, 18), new Point(2, 13)]); break;
-            case "image": g.DrawRectangle(pen, 2, 3, 16, 14); g.DrawEllipse(pen, 5, 5, 3, 3); g.DrawLines(pen, [new Point(4, 15), new Point(9, 10), new Point(12, 13), new Point(14, 11), new Point(17, 15)]); break;
-            case "settings":
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var gearPen = new Pen(color, 1.55f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+            case "zoom-minus":
+                g.DrawEllipse(pen, 1.5f, 1.5f, 17, 17); g.DrawLine(pen, 6, 10, 14, 10);
+                break;
+            case "zoom-plus":
+                g.DrawEllipse(pen, 1.5f, 1.5f, 17, 17); g.DrawLine(pen, 6, 10, 14, 10); g.DrawLine(pen, 10, 6, 10, 14);
+                break;
+            case "color-wheel":
+                for (int i = 0; i < 12; i++)
                 {
-                    var teeth = new List<PointF>(48);
-                    for (int index = 0; index < 8; index++)
-                    {
-                        float center = index * 45f;
-                        teeth.Add(GearPoint(center - 22.5f, 7.1f));
-                        teeth.Add(GearPoint(center - 12f, 7.1f));
-                        teeth.Add(GearPoint(center - 12f, 9.1f));
-                        teeth.Add(GearPoint(center + 12f, 9.1f));
-                        teeth.Add(GearPoint(center + 12f, 7.1f));
-                        teeth.Add(GearPoint(center + 22.5f, 7.1f));
-                    }
-                    g.DrawPolygon(gearPen, teeth.ToArray());
-                    g.DrawEllipse(gearPen, 7.2f, 7.2f, 5.6f, 5.6f);
+                    using var wheelPen = new Pen(HueColor(i * 30), 3.2f);
+                    g.DrawArc(wheelPen, 3.5f, 3.5f, 13, 13, i * 30, 32);
                 }
+                using (var wheelBadge = new SolidBrush(Color.White)) g.FillEllipse(wheelBadge, 13, 1, 7, 7);
+                using (var plusPen = new Pen(color, 1.1f))
+                { g.DrawLine(plusPen, 16.5f, 2.5f, 16.5f, 6.5f); g.DrawLine(plusPen, 14.5f, 4.5f, 18.5f, 4.5f); }
+                break;
+            case "fit": g.DrawLines(pen, [new Point(3, 7), new Point(3, 3), new Point(7, 3)]); g.DrawLines(pen, [new Point(13, 3), new Point(17, 3), new Point(17, 7)]); g.DrawLines(pen, [new Point(17, 13), new Point(17, 17), new Point(13, 17)]); g.DrawLines(pen, [new Point(7, 17), new Point(3, 17), new Point(3, 13)]); break;
+            case "fullscreen":
+                g.DrawLines(pen, [new Point(1, 8), new Point(1, 1), new Point(8, 1)]);
+                g.DrawLines(pen, [new Point(12, 1), new Point(19, 1), new Point(19, 8)]);
+                g.DrawLines(pen, [new Point(19, 12), new Point(19, 19), new Point(12, 19)]);
+                g.DrawLines(pen, [new Point(8, 19), new Point(1, 19), new Point(1, 12)]);
+                break;
+            case "image":
+                using (var frame = Rounded(new Rectangle(2, 2, 16, 16), 2)) g.DrawPath(pen, frame);
+                g.DrawEllipse(pen, 5, 5, 3, 3);
+                g.DrawLines(pen, [new Point(4, 15), new Point(9, 10), new Point(12, 13), new Point(14, 10), new Point(17, 15)]);
+                break;
+            case "settings":
+                g.DrawLine(pen, 10, 1.6f, 10, 4.2f); g.DrawLine(pen, 10, 15.8f, 10, 18.4f);
+                g.DrawLine(pen, 1.6f, 10, 4.2f, 10); g.DrawLine(pen, 15.8f, 10, 18.4f, 10);
+                g.DrawLine(pen, 15.95f, 4.05f, 14.1f, 5.9f); g.DrawLine(pen, 5.9f, 14.1f, 4.05f, 15.95f);
+                g.DrawLine(pen, 15.95f, 15.95f, 14.1f, 14.1f); g.DrawLine(pen, 5.9f, 5.9f, 4.05f, 4.05f);
+                g.DrawEllipse(pen, 4.5f, 4.5f, 11, 11); g.DrawEllipse(pen, 8, 8, 4, 4);
                 break;
             case "help":
                 g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -203,82 +257,68 @@ public sealed class ChromeButton : Button
             case "check": g.DrawLines(pen, [new Point(3, 10), new Point(8, 15), new Point(17, 5)]); break;
             case "close": g.DrawLine(pen, 5, 5, 15, 15); g.DrawLine(pen, 15, 5, 5, 15); break;
             case "mosaic": for (int y = 3; y < 18; y += 5) for (int x = 3; x < 18; x += 5) { if ((x + y) % 2 == 0) g.FillRectangle(brush, x, y, 4, 4); else g.DrawRectangle(pen, x, y, 3, 3); } break;
-            case "blur": g.DrawEllipse(pen, 3, 3, 14, 14); using (var soft = new Pen(Color.FromArgb(100, color), 3)) g.DrawEllipse(soft, 6, 6, 8, 8); break;
+            case "blur":
+                using (var drop = new GraphicsPath())
+                {
+                    drop.AddBezier(10, 2, 8, 5, 4, 9, 4, 13);
+                    drop.AddBezier(4, 13, 4, 16.5f, 6.7f, 19, 10, 19);
+                    drop.AddBezier(10, 19, 13.3f, 19, 16, 16.5f, 16, 13);
+                    drop.AddBezier(16, 13, 16, 9, 12, 5, 10, 2);
+                    g.DrawPath(pen, drop);
+                }
+                break;
             case "more": g.FillEllipse(brush, 3, 8, 3, 3); g.FillEllipse(brush, 8.5f, 8, 3, 3); g.FillEllipse(brush, 14, 8, 3, 3); break;
         }
         g.Restore(state);
 
-        static PointF GearPoint(float degrees, float radius)
-        {
-            float radians = degrees * MathF.PI / 180f;
-            return new PointF(10 + MathF.Cos(radians) * radius, 10 + MathF.Sin(radians) * radius);
-        }
     }
 
     internal static void DrawMenuIcon(Graphics graphics, string key, Rectangle bounds, Color color)
     {
+        if (key == "save") { DrawIcon(graphics, key, bounds, color, 1.2f); return; }
         var state = graphics.Save();
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
         graphics.TranslateTransform(bounds.X, bounds.Y);
         graphics.ScaleTransform(bounds.Width / 20f, bounds.Height / 20f);
-        using var pen = new Pen(color, 1.7f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        using var pen = new Pen(color, 1.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         switch (key)
         {
-            case "save":
-                graphics.DrawLines(pen, [new PointF(3, 1.8f), new PointF(14.2f, 1.8f), new PointF(17.8f, 5), new PointF(17.8f, 18.2f), new PointF(2.2f, 18.2f), new PointF(2.2f, 2.6f), new PointF(3, 1.8f)]);
-                graphics.DrawLines(pen, [new PointF(6, 2), new PointF(6, 8), new PointF(14, 8), new PointF(14, 2)]);
-                graphics.DrawRectangle(pen, 5.5f, 12, 9, 6);
-                break;
             case "export":
-                graphics.DrawLines(pen, [new PointF(12.5f, 5), new PointF(19, 5), new PointF(19, 11.5f)]);
-                graphics.DrawLine(pen, 18.5f, 5.5f, 10.5f, 13.5f);
-                graphics.DrawLines(pen, [new PointF(8.7f, 6.2f), new PointF(3.5f, 6.2f), new PointF(2.2f, 7.5f), new PointF(2.2f, 18.7f), new PointF(14.6f, 18.7f), new PointF(16, 17.4f), new PointF(16, 13.5f)]);
-                break;
-            case "undo":
-                graphics.DrawLines(pen, [new PointF(8, 4), new PointF(3, 8.5f), new PointF(8, 13)]);
-                using (var path = new GraphicsPath())
+                using (var box = Rounded(new Rectangle(2, 5, 15, 13), 2)) graphics.DrawPath(pen, box);
+                graphics.DrawLines(pen, [new PointF(12, 2), new PointF(18, 7), new PointF(12, 12)]);
+                using (var arrow = new GraphicsPath())
                 {
-                    path.AddLine(4, 8.5f, 11.5f, 8.5f);
-                    path.AddBezier(11.5f, 8.5f, 15.2f, 8.5f, 17.2f, 10.2f, 17.2f, 13.5f);
-                    path.AddBezier(17.2f, 13.5f, 17.2f, 16.5f, 14.8f, 18, 11.8f, 18);
-                    graphics.DrawPath(pen, path);
+                    arrow.AddBezier(5, 14, 5, 8, 8, 7, 17, 7);
+                    graphics.DrawPath(pen, arrow);
                 }
                 break;
+            case "undo":
             case "redo":
-                graphics.DrawLines(pen, [new PointF(12, 4), new PointF(17, 8.5f), new PointF(12, 13)]);
-                using (var path = new GraphicsPath())
+                if (key == "redo") { graphics.TranslateTransform(20, 0); graphics.ScaleTransform(-1, 1); }
+                graphics.DrawLines(pen, [new PointF(3, 2), new PointF(3, 7), new PointF(8, 7)]);
+                using (var arrow = new GraphicsPath())
                 {
-                    path.AddLine(16, 8.5f, 8.5f, 8.5f);
-                    path.AddBezier(8.5f, 8.5f, 4.8f, 8.5f, 2.8f, 10.2f, 2.8f, 13.5f);
-                    path.AddBezier(2.8f, 13.5f, 2.8f, 16.5f, 5.2f, 18, 8.2f, 18);
-                    graphics.DrawPath(pen, path);
+                    arrow.AddBezier(3, 7, 5, 1, 16, 1, 16, 8);
+                    arrow.AddBezier(16, 8, 16, 12, 11, 15, 7, 18);
+                    graphics.DrawPath(pen, arrow);
                 }
                 break;
             case "settings":
-                var teeth = new List<PointF>(48);
-                for (int index = 0; index < 8; index++)
+                using (var gear = new GraphicsPath())
                 {
-                    float center = index * 45f;
-                    teeth.Add(MenuGearPoint(center - 22.5f, 7.2f));
-                    teeth.Add(MenuGearPoint(center - 13f, 7.2f));
-                    teeth.Add(MenuGearPoint(center - 13f, 9.1f));
-                    teeth.Add(MenuGearPoint(center + 13f, 9.1f));
-                    teeth.Add(MenuGearPoint(center + 13f, 7.2f));
-                    teeth.Add(MenuGearPoint(center + 22.5f, 7.2f));
+                    var points = new PointF[32];
+                    for (int i = 0; i < points.Length; i++)
+                    {
+                        double angle = (i - .5) * Math.PI / 16;
+                        float radius = i % 4 is 0 or 1 ? 8.2f : 6.3f;
+                        points[i] = new PointF(10 + radius * (float)Math.Cos(angle), 10 + radius * (float)Math.Sin(angle));
+                    }
+                    gear.AddPolygon(points); graphics.DrawPath(pen, gear);
+                    graphics.DrawEllipse(pen, 7, 7, 6, 6);
                 }
-                graphics.DrawPolygon(pen, teeth.ToArray());
-                graphics.DrawEllipse(pen, 4.6f, 4.6f, 10.8f, 10.8f);
-                graphics.DrawEllipse(pen, 8, 8, 4, 4);
                 break;
         }
         graphics.Restore(state);
-
-        static PointF MenuGearPoint(float degrees, float radius)
-        {
-            float radians = degrees * MathF.PI / 180f;
-            return new PointF(10 + MathF.Cos(radians) * radius, 10 + MathF.Sin(radians) * radius);
-        }
     }
 }
 

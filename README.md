@@ -6,6 +6,12 @@ Windows 10/11용 화면 캡처 및 주석 편집기의 개발 기반입니다. .
 
 기존 캡처 편집기를 DIMPIK 브랜드와 새 UI 셸로 전환했습니다. C# WinForms 캡처·편집 엔진은 유지하고 상단/좌측 도구 배치, 도구 옵션 flyout, DIMPIK 로고와 탭 중심 레이아웃을 적용했습니다. SDK 10.0.403에서 Release 빌드와 Windows smoke 검사를 통과했습니다. 네이티브 트레이와 설치 프로그램도 다시 빌드했습니다.
 
+## 1.0.5 검증 (2026-11-11)
+
+Windows / .NET SDK 10.0.403에서 Release 빌드, 전체 기능 스모크, 현재 UI 검사, DPAPI/세션 보안, 펜/리사이즈, 번호, 영역 복사, 갤러리, 아이콘 검사를 통과했습니다. 네이티브 보안과 트레이 대기 메모리, 편집기 두 차례 열기/닫기 및 암호화 세션 생명주기 검사도 통과했습니다.
+
+제목 표시줄은 `딤픽 v1.0.5`로 표시하며, 메뉴·색상표·문서 탭·상태표시줄과 복원 창의 배치를 개선했습니다. 실제 다중 모니터 DPI 전환, 물리 마우스의 창 이동/크기 조절 및 로그인 후 자동 실행은 아직 별도 수동 검증이 필요합니다. 배포 파일은 코드 서명되지 않았습니다.
+
 ## 빌드
 
 .NET 10 SDK `10.0.403`이 필요합니다. 런타임만으로는 빌드할 수 없습니다.
@@ -18,9 +24,9 @@ dotnet build src/DIMPIK/DIMPIK.csproj -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-설치 파일: `release\setup\dimpik_inst_x64_1.0.4.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
+설치 파일: `release\setup\dimpik_inst_x64_1.0.5.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
 
-설치형은 `DIMPIK.exe`(약 20KB 네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
+설치형은 `DIMPIK.exe`(네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
 
 배포 시 버전과 `CHANGELOG.md`를 갱신하고 설치 파일을 빌드한 뒤 소스를 커밋·푸시합니다. 이후 아래 명령으로 GitHub Release를 만듭니다. 현재 변경 이력과 GitHub 자동 릴리즈 노트가 포함되며, 설치 파일 업로드 검증 후 공개됩니다. 인증은 `GH_TOKEN`/`GITHUB_TOKEN` 또는 Git 자격 증명 관리자를 사용합니다.
 
@@ -32,7 +38,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 
 트레이 대기 시 .NET 편집기를 종료하여 네이티브 프로세스 하나만 유지합니다. 창 X로 닫으면 탭·이미지·주석·Undo·배율·스크롤을 `%LOCALAPPDATA%\DIMPIK\session.json`에 보관하고 다음 열기에서 복원합니다. 트레이 종료는 저장 확인 없이 세션을 버립니다. 세션 보관 실패 시 편집 창이 유지됩니다.
 
-메모리 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Resident.ps1`. 현재 Windows 환경에서 대기 상태 합계 작업 집합 8.48~8.65MiB, 전용 커밋 1.36MiB를 측정했습니다. 검증은 프로세스가 하나인지, 작업 집합과 전용 커밋이 각각 10,000,000바이트 미만인지 확인합니다. 캡처·편집 중 메모리는 이 제한 대상이 아닙니다. 상세 검증은 [docs/INSTALLER_TEST_RESULTS.md](docs/INSTALLER_TEST_RESULTS.md)를 참고하세요.
+메모리 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Resident.ps1`. 현재 Windows 환경에서 대기 상태 합계 작업 집합 8.26~8.43MiB, 전용 커밋 1.48MiB를 측정했습니다. 검증은 프로세스가 하나인지, 작업 집합과 전용 커밋이 각각 10,000,000바이트 미만인지 확인합니다. 캡처·편집 중 메모리는 이 제한 대상이 아닙니다. 상세 검증은 [docs/INSTALLER_TEST_RESULTS.md](docs/INSTALLER_TEST_RESULTS.md)를 참고하세요.
 
 앱 아이콘은 `src/DIMPIK/Assets/DIMPIK.ico`에 포함되어 실행 파일, 창 제목, 작업 표시줄과 트레이에 사용됩니다. 헤더의 독자 벡터 마크에서 다시 만들려면 `dotnet run --project tools/DIMPIK.IconBuilder/DIMPIK.IconBuilder.csproj -c Release`를 실행합니다.
 

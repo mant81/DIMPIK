@@ -1,4 +1,4 @@
-#define AppVersion "1.0.4"
+#define AppVersion "1.0.5"
 #ifdef InstallSmoke
   #define InstallId "{{DC29BD00-83DA-43E5-9AEC-C7C51837AB16}"
   #define RunValueName "DIMPIK-InstallSmoke"
@@ -8,7 +8,7 @@
 #endif
 [Setup]
 AppId={#InstallId}
-AppName=DIMPIK
+AppName=딤픽
 AppVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}
 VersionInfoProductVersion={#AppVersion}
@@ -16,7 +16,7 @@ AppPublisher=AAStudio.kr
 LicenseFile=..\LICENSE.txt
 DefaultDirName={commonpf}\DIMPIK
 UsePreviousAppDir=no
-DefaultGroupName=DIMPIK
+DefaultGroupName=딤픽
 #ifdef InstallSmoke
 PrivilegesRequired=lowest
 #else
@@ -58,8 +58,8 @@ Source: "..\release\app\DIMPIK.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\release\app\editor\*"; DestDir: "{app}\editor"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\DIMPIK"; Filename: "{app}\DIMPIK.exe"
-Name: "{autodesktop}\DIMPIK"; Filename: "{app}\DIMPIK.exe"; Tasks: desktopicon
+Name: "{group}\딤픽"; Filename: "{app}\DIMPIK.exe"
+Name: "{autodesktop}\딤픽"; Filename: "{app}\DIMPIK.exe"; Tasks: desktopicon
 
 [Run]
 #ifdef InstallSmoke
