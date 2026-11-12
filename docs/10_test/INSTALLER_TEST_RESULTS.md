@@ -44,6 +44,6 @@
 - `LICENSE.txt` 추가: 개인·기업·관공서 모두 무료, 업무/영리 목적 사용 무료를 명시. 제작사 AAStudio.kr. 일반적인 사용 허용, 원본 무료 재배포, 이용 책임, 제공 상태, 제3자 구성 요소, 업데이트 안내 포함.
 - 설치 프로그램의 무료 이용약관 단계와 앱 도움말이 동일한 약관 원문을 사용. 설치 후 앱 폴더에 LICENSE.txt 포함. 제작사는 설치 프로그램·네이티브 상주 EXE·편집기 EXE 회사 정보에 AAStudio.kr로 반영. 앱 상단 아이콘과 DIMPIK 표시는 적용.
 - `dotnet build src/DIMPIK/DIMPIK.csproj -c Release`: 성공(경고 0/오류 0). 기존 자동 테스트 및 도움말 약관 원문 일치/무료 대상/제작사 검사 통과.
-- `tools/Test-LicenseUI.ps1`: 실제 설치 마법사의 약관 내용과 무료 안내 확인. 동의 전 다음 버튼 비활성, 동의 후 활성 확인. 이 UI 검사는 설치 단계로 진행하지 않음. 실제 화면: docs/screenshots/dimpik-legacy-installer-license.png.
+- `tools/Test-LicenseUI.ps1`: 실제 설치 마법사의 약관 내용과 무료 안내 확인. 동의 전 다음 버튼 비활성, 동의 후 활성 확인. 이 UI 검사는 설치 단계로 진행하지 않음. 실제 화면: docs/02_screen/screenshots/dimpik-legacy-installer-license.png.
 - 별도 테스트 AppId 패키지로 `tools/Test-Installer.ps1 -Package release/license-install-smoke-package/DIMPIK-Setup-Smoke.exe`: 설치/재설치/제거 통과. 설치된 약관의 무료 대상/제작사, EXE 회사 정보, EXE/DLL 분리, PDB 제외, 테스트 자동 실행 등록 및 제거 확인.
 - `build-installer.ps1` 및 갱신된 약관 헤더의 Inno Setup 재컴파일 성공. 최종 파일: release/setup/DIMPIK-Setup.exe. 설치 EXE의 CompanyName도 AAStudio.kr 확인. 코드 서명은 추가하지 않음.

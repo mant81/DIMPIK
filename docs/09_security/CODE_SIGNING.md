@@ -68,7 +68,7 @@ GitHub 연동: https://docs.signpath.io/trusted-build-systems/github
 ### MIT 전환 검증 (2026-10-31)
 
 - `dotnet build src/DIMPIK/DIMPIK.csproj -c Release`: 성공, 경고 0 / 오류 0 (.NET SDK 10.0.403, Windows).
-- `dotnet run --project tests/DIMPIK.Smoke -c Release`: 통과. 도움말이 내장된 MIT 원문과 동일하며 AAStudio.kr 저작권 표시를 포함하는지 확인. 실제 도움말 화면은 `docs/screenshots/dimpik-help-0.png`에 생성.
+- `dotnet run --project tests/DIMPIK.Smoke -c Release`: 통과. 도움말이 내장된 MIT 원문과 동일하며 AAStudio.kr 저작권 표시를 포함하는지 확인. 실제 도움말 화면은 `docs/02_screen/screenshots/dimpik-help-0.png`에 생성.
 - `dotnet run --project tests/DIMPIK.Smoke -c Release -- --security-test`: 통과.
 - 설치 UI/설치 검사 스크립트의 기대 문구를 MIT로 변경했으며 이번 작업에서 설치 프로그램 재빌드·설치 검사는 실행하지 않음.
 - 배포·기존 바이너리 교체·SignPath 신청 제출·공인 서명은 수행하지 않음.

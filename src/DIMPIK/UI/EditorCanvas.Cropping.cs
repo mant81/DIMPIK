@@ -27,7 +27,7 @@ public sealed partial class EditorCanvas
     {
         CancelCrop(); FinishTextEdit(); Capture = false; draft = null; penPoints = null; Tool = null; Document.Selection = null;
         RegionCopyMode = false; CropMode = false; CropBounds = Rectangle.Empty; PixelEffect = effect; Cursor = Cursors.Cross;
-        EffectStrength = effect == PixelEffectKind.Mosaic ? 12 : 8;
+        EffectStrength = effect == PixelEffectKind.Mosaic ? 24 : 8;
         SelectionChanged?.Invoke(this, EventArgs.Empty); Invalidate(); Focus();
     }
     public void SetEffectStrength(int strength)

@@ -6,11 +6,11 @@ Windows 10/11용 화면 캡처 및 주석 편집기의 개발 기반입니다. .
 
 기존 캡처 편집기를 DIMPIK 브랜드와 새 UI 셸로 전환했습니다. C# WinForms 캡처·편집 엔진은 유지하고 상단/좌측 도구 배치, 도구 옵션 flyout, DIMPIK 로고와 탭 중심 레이아웃을 적용했습니다. SDK 10.0.403에서 Release 빌드와 Windows smoke 검사를 통과했습니다. 네이티브 트레이와 설치 프로그램도 다시 빌드했습니다.
 
-## 1.0.5 검증 (2026-11-11)
+## 1.0.6 검증 (2026-11-12)
 
-Windows / .NET SDK 10.0.403에서 Release 빌드, 전체 기능 스모크, 현재 UI 검사, DPAPI/세션 보안, 펜/리사이즈, 번호, 영역 복사, 갤러리, 아이콘 검사를 통과했습니다. 네이티브 보안과 트레이 대기 메모리, 편집기 두 차례 열기/닫기 및 암호화 세션 생명주기 검사도 통과했습니다.
+Windows / .NET SDK 10.0.403에서 Release 빌드, 기능 스모크, 네이티브 경로 보안, 트레이 대기 메모리, 편집기 재실행 중 암호화 세션 유지 및 트레이 종료 시 세션 삭제 검사를 통과했습니다. 설치 패키지 빌드는 성공했으나 관리 환경에서 시작 메뉴와 HKCU 레지스트리 쓰기가 차단되어 설치·제거 반복 검사는 완료하지 못했습니다.
 
-제목 표시줄은 `딤픽 v1.0.5`로 표시하며, 메뉴·색상표·문서 탭·상태표시줄과 복원 창의 배치를 개선했습니다. 실제 다중 모니터 DPI 전환, 물리 마우스의 창 이동/크기 조절 및 로그인 후 자동 실행은 아직 별도 수동 검증이 필요합니다. 배포 파일은 코드 서명되지 않았습니다.
+로그인 자동 실행 설정을 체크 즉시 적용하고, 업데이트 도움말에 홈페이지 및 문의 정보를 표시합니다. 모자이크 기본 블록 크기와 효과 안내를 개선했습니다. 실제 다중 모니터 DPI 전환, 물리 마우스의 창 이동/크기 조절 및 로그인 후 자동 실행은 아직 별도 수동 검증이 필요합니다. 배포 파일은 코드 서명되지 않았습니다.
 
 ## 빌드
 
@@ -24,9 +24,10 @@ dotnet build src/DIMPIK/DIMPIK.csproj -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-설치 파일: `release\setup\dimpik_inst_x64_1.0.5.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
+설치 파일: `release\setup\dimpik_inst_x64_1.0.6.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
 
 설치형은 `DIMPIK.exe`(네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
+업데이트는 설치 파일을 기존 프로그램에 덮어 설치하며, 기존 설치 폴더를 기본 경로로 사용합니다. 업데이트 전 실행 중인 DIMPIK을 종료하세요. 사용자 설정은 설치 폴더 밖에 있어 유지됩니다.
 
 배포 시 버전과 `CHANGELOG.md`를 갱신하고 설치 파일을 빌드한 뒤 소스를 커밋·푸시합니다. 이후 아래 명령으로 GitHub Release를 만듭니다. 현재 변경 이력과 GitHub 자동 릴리즈 노트가 포함되며, 설치 파일 업로드 검증 후 공개됩니다. 인증은 `GH_TOKEN`/`GITHUB_TOKEN` 또는 Git 자격 증명 관리자를 사용합니다.
 
@@ -36,9 +37,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File publish-release.ps1
 
 설치 시 또는 **설정 → 일반 → Windows 로그인 시 자동 실행**에서 로그인 자동 실행을 켤 수 있습니다. 설치 화면에서는 기본 체크 상태이며 사용자가 해제할 수 있습니다. 자동 실행은 트레이에서 조용히 시작합니다.
 
-트레이 대기 시 .NET 편집기를 종료하여 네이티브 프로세스 하나만 유지합니다. 창 X로 닫으면 탭·이미지·주석·Undo·배율·스크롤을 `%LOCALAPPDATA%\DIMPIK\session.json`에 보관하고 다음 열기에서 복원합니다. 트레이 종료는 저장 확인 없이 세션을 버립니다. 세션 보관 실패 시 편집 창이 유지됩니다.
+트레이 대기 시 .NET 편집기를 종료하여 네이티브 프로세스 하나만 유지합니다. 창 X로 닫으면 탭·이미지·주석·Undo·배율·스크롤을 `%LOCALAPPDATA%\DIMPIK\session.json`에 저장하고, 같은 트레이 실행 중 편집기를 다시 열면 복원합니다. DIMPIK를 완전히 종료하거나 재시작하면 이전 세션을 삭제하고 탭을 없이 시작합니다. 트레이 종료는 저장 확인 없이 세션을 버립니다. 세션 보관 실패 시 편집 창이 유지됩니다.
 
-메모리 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Resident.ps1`. 현재 Windows 환경에서 대기 상태 합계 작업 집합 8.26~8.43MiB, 전용 커밋 1.48MiB를 측정했습니다. 검증은 프로세스가 하나인지, 작업 집합과 전용 커밋이 각각 10,000,000바이트 미만인지 확인합니다. 캡처·편집 중 메모리는 이 제한 대상이 아닙니다. 상세 검증은 [docs/INSTALLER_TEST_RESULTS.md](docs/INSTALLER_TEST_RESULTS.md)를 참고하세요.
+메모리 검증: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Resident.ps1`. 현재 Windows 환경에서 대기 상태 합계 작업 집합 8.24~8.41MiB, 전용 커밋 1.47MiB를 측정했습니다. 검증은 프로세스가 하나인지, 작업 집합과 전용 커밋이 각각 10,000,000바이트 미만인지 확인합니다. 캡처·편집 중 메모리는 이 제한 대상이 아닙니다. 상세 검증은 [설치 검사 결과](docs/10_test/INSTALLER_TEST_RESULTS.md)를 참고하세요.
 
 앱 아이콘은 `src/DIMPIK/Assets/DIMPIK.ico`에 포함되어 실행 파일, 창 제목, 작업 표시줄과 트레이에 사용됩니다. 헤더의 독자 벡터 마크에서 다시 만들려면 `dotnet run --project tools/DIMPIK.IconBuilder/DIMPIK.IconBuilder.csproj -c Release`를 실행합니다.
 
@@ -89,7 +90,7 @@ See [code signing and SmartScreen](docs/CODE_SIGNING.md) for signed release buil
 
 설치 완료 시 실행 선택 체크박스 없이 원래 사용자 권한으로 DIMPIK를 트레이에서 자동 실행합니다. 편집 창은 열지 않습니다. 무인 설치에서는 실행하지 않습니다. Windows 로그인 시 자동 실행은 별도의 선택 설정으로 유지합니다.
 
-보안 점검 및 제한은 [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)를 참고하세요. 창 X로 보관한 세션의 원본·주석·실행 취소 이력은 현재 Windows 사용자 계정의 DPAPI로 암호화합니다. 기존 평문 세션은 검증 후 자동 변환하며 같은 계정 권한의 프로그램까지 차단하지는 못합니다. 세션 파일은 다른 계정/PC에서 복원되지 않을 수 있으므로 공유하지 마세요. 트레이 종료 시 파일을 삭제하지만 보안 삭제를 보장하지 않습니다.
+보안 점검 및 제한은 [보안 검토](docs/09_security/SECURITY_REVIEW.md)를 참고하세요. 창 X로 보관한 세션의 원본·주석·실행 취소 이력은 현재 Windows 사용자 계정의 DPAPI로 암호화합니다. 기존 평문 세션은 검증 후 자동 변환하며 같은 계정 권한의 프로그램까지 차단하지는 못합니다. 세션 파일은 다른 계정/PC에서 복원되지 않을 수 있으므로 공유하지 마세요. 트레이 종료 시 파일을 삭제하지만 보안 삭제를 보장하지 않습니다.
 
 세션은 128MiB·128개 탭·문서별 Undo/Redo 각각 최대 256개와 주석 2,048개를 지원합니다. 이미지 파일은 64MiB·6,400만 픽셀·한 변 32,768픽셀까지 허용하며 PNG/JPEG/BMP 헤더를 디코딩 전에 검사합니다. 제한 초과 시 오류를 안내하고 기존 편집 상태를 유지합니다. 보안 회귀 검사는 `dotnet run --project tests/DIMPIK.Smoke -c Release -- --security-test`, 실제 암호화 세션 생명주기 검사는 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-SessionLifecycle.ps1`입니다. 대기 메모리는 현재 약 11MB로 기존 목표인 10MB를 초과합니다.
 

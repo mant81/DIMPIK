@@ -21,12 +21,12 @@ $env:DIMPIK_DATA_DIR = $profileFolder
 $trayProcess = $null
 try {
     if ([ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK') -ne [IntPtr]::Zero) { throw 'Exit the running DIMPIK tray before this isolated test.' }
-    & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-restore -- --session-fixture "$profileFolder\session.json"
-    if ($LASTEXITCODE -ne 0) { throw 'Session fixture creation failed.' }
     '{"ShowGallery":true}' | Set-Content -LiteralPath "$profileFolder\settings.json" -Encoding UTF8
     $trayProcess = Start-Process -FilePath "$AppFolder\DIMPIK.exe" -ArgumentList '--background' -WindowStyle Hidden -PassThru
     Write-Output 'Waiting for native tray window...'
     Wait-Until { [ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK') -ne [IntPtr]::Zero }
+    & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-restore -- --session-fixture "$profileFolder\session.json"
+    if ($LASTEXITCODE -ne 0) { throw 'Session fixture creation failed.' }
     $trayWindow = [ResidentWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK')
     $measurements = @()
     foreach ($cycle in 0..2) {

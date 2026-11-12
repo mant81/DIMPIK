@@ -15,7 +15,8 @@ public sealed class AppSettings
     public bool ShowToolbar { get; set; } = true;
     public string ToolbarPosition { get; set; } = "Top";
     public bool AutoSave { get; set; }
-    public string AutoSaveFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DIMPIK");
+    public static string DefaultAutoSaveFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DIMPIK");
+    public string AutoSaveFolder { get; set; } = DefaultAutoSaveFolder;
 }
 
 public static class SettingsService
@@ -47,6 +48,18 @@ public static class SettingsService
         var temporary = path + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         File.Move(temporary, path, true);
+    }
+
+    private static bool IsLegacyAutoSaveFolder(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder)) return false;
+        try
+        {
+            string oldDefault = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ASnapdo")));
+            string configured = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+            return string.Equals(configured, oldDefault, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
     }
 
     private static void MigrateLegacyFiles()
