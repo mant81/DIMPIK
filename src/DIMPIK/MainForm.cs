@@ -90,7 +90,7 @@ public sealed class MainForm : Form
         var fileHelp = new ToolStripMenuItem("도움말", null, (_, _) => { using var dialog = new HelpForm(); dialog.ShowDialog(this); });
         var fileClose = new ToolStripMenuItem("닫기", null, (_, _) => { if (tabs.SelectedIndex >= 0) CloseTab(tabs.SelectedIndex); }) { ShortcutKeyDisplayString = "Ctrl+W" };
         fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp, new ToolStripSeparator(), fileClose]);
-        fileMenu.DropDownOpening += (_, _) => fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = fileClose.Enabled = Editor != null;
+        fileMenu.DropDownOpening += (_, _) => { fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null; fileClose.Enabled = true; };
         var editMenu = new ToolStripMenuItem("편집");
         editMenu.Margin = new Padding(0, 0, 10, 0);
         var editCut = new ToolStripMenuItem("잘라내기", null, (_, _) => CutFromMenu()) { ShortcutKeyDisplayString = "Ctrl+X" };
@@ -237,8 +237,8 @@ public sealed class MainForm : Form
         cropGroup.Controls.Add(cropTool);
         var resizeTool = new ChromeButton { Text = "크기 조절", IconKey = "resize", IconAboveText = true, Width = 64, Height = 76, BackColor = Color.White, AccessibleName = "이미지 크기 조절" };
         resizeTool.Click += (_, _) => ResizeImage(); cropGroup.Controls.Add(resizeTool); documentActions.Add(resizeTool);
-        tips.SetToolTip(mosaicTool, "강도를 조절하고 캡처 이미지 영역을 드래그하면 적용됩니다.");
-        tips.SetToolTip(blurTool, "강도를 조절하고 캡처 이미지 영역을 드래그하면 적용됩니다.");
+        tips.SetToolTip(mosaicTool, "기본 24px 블록 크기. 영역을 큰 네모 픽셀 타일로 가립니다.");
+        tips.SetToolTip(blurTool, "흐림 반경을 조절해 선택 영역의 세부 묘사를 부드럽게 흐립니다.");
         var regionGroup = AddRibbonGroup("이미지 영역", 350);
         var regionCopy = new ChromeButton { Text = "영역 복사", IconKey = "region-copy", IconAboveText = true, Width = 60, Height = 76, AccessibleName = "선택한 이미지 영역 복사" };
         regionCopy.Click += (_, _) => Editor?.StartCrop(true); regionGroup.Controls.Add(regionCopy);
@@ -342,9 +342,12 @@ public sealed class MainForm : Form
         var cropCancel = new ChromeButton { Text = "취소", IconKey = "close", Width = 84, Height = 32, BackColor = Color.White, Visible = false };
         cropCancel.Click += (_, _) => Editor?.CancelCrop();
         var cropSize = new Label { AutoSize = true, Visible = false, Margin = new Padding(8, 7, 0, 0) };
-        var effectLabel = new Label { Text = "강도 (px)", AutoSize = true, Visible = false, Margin = new Padding(6, 7, 0, 0) };
-        var effectStrength = new NumericUpDown { Minimum = 2, Maximum = 64, Value = 12, Width = 62, Visible = false, Margin = new Padding(4, 4, 8, 0), AccessibleName = "효과 강도" };
-        effectStrength.ValueChanged += (_, _) => { if (!updatingInspector) Editor?.SetEffectStrength((int)effectStrength.Value); };
+        var effectLabel = new Label { Text = "효과 크기 (px)", AutoSize = true, Visible = false, Margin = new Padding(6, 7, 0, 0) };
+        string EffectDescription(PixelEffectKind kind, int amount) => kind == PixelEffectKind.Mosaic
+            ? $"네모 블록으로 가립니다 · 블록 {amount}px · 드래그 후 놓으면 적용 / Esc 취소"
+            : $"주변 색을 섞어 부드럽게 흐립니다 · 반경 {amount}px · 드래그 후 놓으면 적용 / Esc 취소";
+        var effectStrength = new NumericUpDown { Minimum = 2, Maximum = 64, Value = 12, Width = 62, Visible = false, Margin = new Padding(4, 4, 8, 0), AccessibleName = "효과 크기" };
+        effectStrength.ValueChanged += (_, _) => { if (!updatingInspector) { Editor?.SetEffectStrength((int)effectStrength.Value); if (Editor?.PixelEffect is { } kind) cropSize.Text = EffectDescription(kind, (int)effectStrength.Value); } };
         effectStrength.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; Editor?.CancelCrop(); Editor?.Focus(); }
@@ -443,13 +446,18 @@ public sealed class MainForm : Form
             cropSize.Visible = cropping || Editor?.PixelEffect != null;
             if (Editor?.RegionCopyMode == true) cropApply.Visible = false;
             effectLabel.Visible = effectStrength.Visible = Editor?.PixelEffect != null;
-            if (Editor?.PixelEffect != null)
+            if (Editor?.PixelEffect is { } activeEffect)
             {
-                updatingInspector = true; try { effectStrength.Value = Editor.EffectStrength; } finally { updatingInspector = false; }
+                effectLabel.Text = activeEffect == PixelEffectKind.Mosaic ? "블록 크기 (px)" : "흐림 반경 (px)";
+                effectStrength.AccessibleName = activeEffect == PixelEffectKind.Mosaic ? "모자이크 블록 크기" : "블러 흐림 반경";
+                decimal minimumStrength = activeEffect == PixelEffectKind.Mosaic ? 8 : 2;
+                updatingInspector = true;
+                try { if (effectStrength.Value < minimumStrength) effectStrength.Value = minimumStrength; effectStrength.Minimum = minimumStrength; effectStrength.Value = Editor.EffectStrength; }
+                finally { updatingInspector = false; }
             }
             cropApply.Enabled = Editor?.CanApplyCrop == true;
-            cropSize.Text = Editor?.PixelEffect is { } activeEffect
-                ? $"드래그하여 {(activeEffect == PixelEffectKind.Mosaic ? "모자이크" : "블러")} 영역 지정 · 놓으면 적용 · Esc 취소"
+            cropSize.Text = Editor?.PixelEffect is { } cropEffect
+                ? EffectDescription(cropEffect, Editor.EffectStrength)
                 : Editor?.RegionCopyMode == true
                 ? (Editor.CanApplyCrop ? $"{Editor.CropBounds.Width} × {Editor.CropBounds.Height} px · 놓으면 자동 복사 / Esc 취소" : "복사할 영역을 드래그하세요 · 놓으면 자동 복사 / Esc 취소")
                 : Editor?.CanApplyCrop == true ? $"{Editor.CropBounds.Width} × {Editor.CropBounds.Height} px · Enter 적용 / Esc 취소" : "영역을 드래그하세요 · Esc 취소";

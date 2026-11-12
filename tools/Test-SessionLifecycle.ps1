@@ -20,11 +20,11 @@ $oldProfile = $env:DIMPIK_DATA_DIR
 $env:DIMPIK_DATA_DIR = $profile
 $trayProcess = $null
 try {
-    & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-build -- --session-fixture "$profile\session.json"
-    if ($LASTEXITCODE -ne 0) { throw 'Fixture creation failed.' }
     $trayProcess = Start-Process "$AppFolder\DIMPIK.exe" -ArgumentList '--background' -WindowStyle Hidden -PassThru
     Wait-For { [SecurityLifecycleWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK') -ne [IntPtr]::Zero }
     $window = [SecurityLifecycleWindow]::FindWindow('DIMPIK.Tray', 'DIMPIK')
+    & dotnet run --project "$PSScriptRoot\..\tests\DIMPIK.Smoke\DIMPIK.Smoke.csproj" -c Release --no-build -- --session-fixture "$profile\session.json"
+    if ($LASTEXITCODE -ne 0) { throw 'Fixture creation failed.' }
     foreach ($cycle in 1..2) {
         [void][SecurityLifecycleWindow]::PostMessage($window, 0x8001, [IntPtr]::Zero, [IntPtr]::Zero)
         Wait-For { @(Get-Process DIMPIK -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$AppFolder\editor\DIMPIK.exe" -and $_.MainWindowHandle -ne [IntPtr]::Zero }).Count -eq 1 }

@@ -1,4 +1,4 @@
-#define AppVersion "1.0.5"
+#define AppVersion "1.0.6"
 #ifdef InstallSmoke
   #define InstallId "{{DC29BD00-83DA-43E5-9AEC-C7C51837AB16}"
   #define RunValueName "DIMPIK-InstallSmoke"
@@ -10,12 +10,14 @@
 AppId={#InstallId}
 AppName=딤픽
 AppVersion={#AppVersion}
+UninstallDisplayName=딤픽 v{#AppVersion}
 VersionInfoVersion={#AppVersion}
 VersionInfoProductVersion={#AppVersion}
 AppPublisher=AAStudio.kr
 LicenseFile=..\LICENSE.txt
 DefaultDirName={commonpf}\DIMPIK
-UsePreviousAppDir=no
+UsePreviousAppDir=yes
+DirExistsWarning=no
 DefaultGroupName=딤픽
 #ifdef InstallSmoke
 PrivilegesRequired=lowest
@@ -33,7 +35,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 AppMutex=Local\DIMPIK.NativeTray,Local\DIMPIK.Editor,Local\ASnapdo.NativeTray,Local\ASnapdo.Editor
-CloseApplications=no
+CloseApplications=yes
 RestartApplications=no
 
 [Languages]
@@ -73,7 +75,6 @@ Filename: "{app}\DIMPIK.exe"; Parameters: "--background"; Flags: nowait runasori
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
-    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'DIMPIK');
     RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'ASnapdo');
 end;
 

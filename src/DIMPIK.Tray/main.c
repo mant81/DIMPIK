@@ -198,6 +198,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     }
     CreateDirectoryW(settingsPath, NULL);
     CopyText(sessionPath, settingsPath); AppendText(sessionPath, L"\\session.json"); AppendText(settingsPath, L"\\settings.json");
+    // A new tray process starts a fresh app session; discard tabs left by a previous run.
+    DeleteFileW(sessionPath);
     wc.lpfnWndProc = WindowProc; wc.hInstance = GetModuleHandleW(NULL); wc.lpszClassName = CLASS_NAME;
     wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(1)); RegisterClassW(&wc);
     window = CreateWindowExW(0, CLASS_NAME, L"DIMPIK", WS_OVERLAPPED, 0, 0, 0, 0, NULL, NULL, wc.hInstance, NULL);

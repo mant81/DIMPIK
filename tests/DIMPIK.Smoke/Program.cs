@@ -357,7 +357,7 @@ internal static class Program
                     help.Show(form); Application.DoEvents();
                     string helpOutput = Path.Combine(Environment.CurrentDirectory, "docs", "screenshots");
                     var pages = help.Controls.OfType<TabControl>().Single();
-                    var license = pages.TabPages[0].Controls.OfType<TextBox>().Single().Text;
+                    var license = pages.TabPages[0].Controls.OfType<TextBoxBase>().Single().Text;
                     Check(license.Contains("MIT License") && license.Contains("Copyright (c) 2026 AAStudio.kr") && license.ReplaceLineEndings("\n") == LicenseInfo.Terms.ReplaceLineEndings("\n"), "Help displays shared MIT license and copyright");
                     foreach (TabPage page in pages.TabPages)
                     {
@@ -859,11 +859,12 @@ internal static class Program
         Application.DoEvents();
         Save(options, Path.Combine(Environment.CurrentDirectory, "docs", "screenshots", "dimpik-settings-general.png"));
         controls.OfType<CheckBox>().Single(c => c.AccessibleName == "자동 실행").Checked = true;
+        Check(changes.SequenceEqual([true]), "Startup registration applies immediately when toggled");
         var save = controls.OfType<ChromeButton>().Single(c => c.AccessibleName == "변경 저장");
-        save.PerformClick(); Check(changes.SequenceEqual([true, false]) && options.Visible, "Failed settings save rolls back startup registration");
-        fail = false; save.PerformClick(); Check(changes.SequenceEqual([true, false, true]), "Successful settings save applies startup option");
+        save.PerformClick(); Check(changes.SequenceEqual([true]) && options.Visible, "Failed settings save does not undo startup registration");
+        fail = false; save.PerformClick(); Check(changes.SequenceEqual([true]), "Saving other settings does not reapply startup option");
         Check(applied?.ShowRulers == true, "Saving settings preserves the ruler preference");
-        Console.WriteLine("PASS: startup checkbox apply and rollback when settings save fails.");
+        Console.WriteLine("PASS: startup checkbox applies immediately and remains independent of settings save.");
     }
     private static void Drag(EditorCanvas e, Point from, Point to) { Mouse(e, "OnMouseDown", from); Mouse(e, "OnMouseMove", to); Mouse(e, "OnMouseUp", to); }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

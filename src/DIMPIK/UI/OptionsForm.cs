@@ -78,7 +78,7 @@ public sealed class OptionsForm : Form
         layout = Page("일반");
         var startup = new CheckBox { Text = "Windows 로그인 시 자동 실행", AutoSize = true, Checked = runAtLogin ?? true, Enabled = runAtLogin.HasValue, AccessibleName = "자동 실행" };
         layout.Controls.Add(startup);
-        Label(runAtLogin.HasValue ? "로그인하면 트레이에서 조용히 대기합니다. 캡처할 때만 편집기를 실행합니다." : "설치형 버전에서 자동 실행을 설정할 수 있습니다.");
+        Label(runAtLogin.HasValue ? "체크하면 바로 적용됩니다. 로그인하면 트레이에서 조용히 대기하고 캡처할 때만 편집기를 실행합니다." : "설치형 버전에서 자동 실행을 설정할 수 있습니다.");
         var showGallery = new CheckBox { Text = "하단 캡처 갤러리 표시", Checked = settings.ShowGallery, AutoSize = true, AccessibleName = "캡처 갤러리" };
         layout.Controls.Add(showGallery);
         Label("열린 캡처를 썸네일로 보고 클릭해 탭을 전환합니다.");
@@ -96,6 +96,26 @@ public sealed class OptionsForm : Form
         actions.Controls.AddRange([cancel, save]); Controls.Add(error); Controls.Add(actions);
         actions.BringToFront(); error.BringToFront(); body.BringToFront();
         CancelButton = cancel;
+        bool persistedStartup = runAtLogin ?? startup.Checked;
+        bool restoringStartup = false;
+        startup.CheckedChanged += (_, _) =>
+        {
+            if (!runAtLogin.HasValue || restoringStartup) return;
+            try
+            {
+                setRunAtLogin?.Invoke(startup.Checked);
+                persistedStartup = startup.Checked;
+                error.Text = "";
+            }
+            catch (Exception e)
+            {
+                error.Text = "자동 실행 설정 실패: " + e.Message;
+                tabs.SelectedIndex = 3;
+                restoringStartup = true;
+                try { startup.Checked = persistedStartup; }
+                finally { restoringStartup = false; }
+            }
+        };
         bool CheckHotkeys()
         {
             bool duplicate = region.Input.SelectedKeys == full.Input.SelectedKeys;
@@ -145,14 +165,7 @@ public sealed class OptionsForm : Form
                 ToolbarPosition = toolbarPosition.SelectedIndex == 1 ? "Left" : "Top"
             };
             if (updated.RegionHotkey == updated.FullscreenHotkey) { error.Text = "두 단축키는 다르게 지정하세요."; return; }
-            if (runAtLogin.HasValue && startup.Checked != runAtLogin.Value)
-            {
-                try { setRunAtLogin?.Invoke(startup.Checked); }
-                catch (Exception e) { error.Text = "자동 실행 설정 실패: " + e.Message; tabs.SelectedIndex = 3; return; }
-            }
             error.Text = apply(updated) ?? "";
-            if (error.Text.Length != 0 && runAtLogin.HasValue && startup.Checked != runAtLogin.Value)
-            { try { setRunAtLogin?.Invoke(runAtLogin.Value); } catch (Exception e) { error.Text += " · 자동 실행 복원 실패: " + e.Message; } }
             if (error.Text.Length == 0) { DialogResult = DialogResult.OK; Close(); }
         };
     }
