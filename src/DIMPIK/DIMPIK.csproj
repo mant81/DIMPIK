@@ -11,7 +11,7 @@
     <Company>AAStudio.kr</Company>
     <Product>DIMPIK</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Assets/DIMPIK.ico</ApplicationIcon>
   </PropertyGroup>

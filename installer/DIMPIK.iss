@@ -1,4 +1,4 @@
-#define AppVersion "1.0.6"
+#define AppVersion "1.0.7"
 #ifdef InstallSmoke
   #define InstallId "{{DC29BD00-83DA-43E5-9AEC-C7C51837AB16}"
   #define RunValueName "DIMPIK-InstallSmoke"

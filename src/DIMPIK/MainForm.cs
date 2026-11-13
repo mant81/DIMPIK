@@ -1416,6 +1416,21 @@ public sealed class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
+        const int WmPaint = 0x000F;
+        if (m.Msg == WmPaint)
+        {
+            base.WndProc(ref m);
+            if (!fullScreen && FormBorderStyle == FormBorderStyle.None && WindowState != FormWindowState.Minimized && ClientSize.Width > 1 && ClientSize.Height > 1)
+            {
+                // The custom chrome has no native non-client frame, so draw a quiet
+                // perimeter over the client edge to keep the window distinct on white desktops.
+                using var graphics = Graphics.FromHwnd(Handle);
+                using var pen = new Pen(Color.FromArgb(203, 213, 225), Math.Max(1, DeviceDpi / 96f));
+                float inset = pen.Width / 2f;
+                graphics.DrawRectangle(pen, inset, inset, ClientSize.Width - pen.Width, ClientSize.Height - pen.Width);
+            }
+            return;
+        }
         if (m.Msg == 0x24 && FormBorderStyle == FormBorderStyle.None)
         {
             base.WndProc(ref m);
