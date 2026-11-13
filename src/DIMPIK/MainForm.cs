@@ -1012,7 +1012,7 @@ public sealed class MainForm : Form
     {
         string name = document.Name;
         var page = new TabPage(CaptureNames.TabTitle(name) + " ●") { Tag = document };
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(16) };
+        var panel = new CanvasViewport { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(16) };
         var editor = new EditorCanvas(document) { Location = new Point(16, 16), Ink = currentInk, Stroke = currentStroke, ShowGrid = settings.ShowGrid };
         editor.SetFillColor(currentFillColor);
         editor.SetStyleOptions(currentFilled, currentDashed, currentTextSize, currentBold);
@@ -1020,6 +1020,11 @@ public sealed class MainForm : Form
         editor.SelectionChanged += (_, _) => RefreshStatus();
         editor.RegionCopyRequested += (_, _) => { if (ReferenceEquals(Editor, editor)) CopyRegion(); };
         editor.MouseWheel += (_, e) => { if ((ModifierKeys & Keys.Control) != 0) { if (e is HandledMouseEventArgs handled) handled.Handled = true; Zoom(e.Delta > 0 ? 1.25f : .8f, e.Location); } };
+        panel.ZoomRequested += (_, e) =>
+        {
+            if (ReferenceEquals(Editor, editor))
+                Zoom(e.Delta > 0 ? 1.25f : .8f, editor.PointToClient(panel.PointToScreen(e.Location)));
+        };
         panel.Resize += (_, _) =>
         {
             editor.Location = new Point(Math.Max(16, (panel.ClientSize.Width - editor.Width) / 2) + panel.AutoScrollPosition.X, Math.Max(16, (panel.ClientSize.Height - editor.Height) / 2) + panel.AutoScrollPosition.Y);
@@ -1192,7 +1197,9 @@ public sealed class MainForm : Form
         editor.UpdateSize();
         if (editor.Parent is not Panel panel) return;
         panel.AutoScrollPosition = Point.Empty;
-        editor.Location = new Point(Math.Max(16, (panel.ClientSize.Width - editor.Width) / 2), Math.Max(16, (panel.ClientSize.Height - editor.Height) / 2));
+        int left = Math.Max(panel.Padding.Left, (panel.DisplayRectangle.Width - editor.Width) / 2);
+        int top = Math.Max(panel.Padding.Top, (panel.DisplayRectangle.Height - editor.Height) / 2);
+        editor.Location = new Point(left, top);
     }
     private bool CloseTab(int index, bool confirmSave = true)
     {
@@ -1240,9 +1247,10 @@ public sealed class MainForm : Form
     private void Fit()
     {
         if (Editor is not { } editor || editor.Parent is not Panel panel) return;
-        editor.Document.Zoom = Math.Clamp(Math.Min(1f, Math.Min((panel.ClientSize.Width - 40f) / editor.Document.Image.Width, (panel.ClientSize.Height - 40f) / editor.Document.Image.Height)), .05f, 1);
-        panel.AutoScrollPosition = Point.Empty; editor.UpdateSize();
-        editor.Location = new Point(Math.Max(16, (panel.ClientSize.Width - editor.Width) / 2), Math.Max(16, (panel.ClientSize.Height - editor.Height) / 2));
+        float availableWidth = Math.Max(1, panel.ClientSize.Width - panel.Padding.Horizontal);
+        float availableHeight = Math.Max(1, panel.ClientSize.Height - panel.Padding.Vertical);
+        editor.Document.Zoom = Math.Clamp(Math.Min(1f, Math.Min(availableWidth / editor.Document.Image.Width, availableHeight / editor.Document.Image.Height)), .05f, 1);
+        ResetCanvasViewport(editor);
         RefreshStatus();
     }
     private void RefreshStatus()
