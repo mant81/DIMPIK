@@ -629,6 +629,7 @@ public sealed class MainForm : Form
         var infoIcon = StatusIcon("image", 20, 18); var zoomDownIcon = StatusIcon("zoom-minus", 20, 20); var zoomUpIcon = StatusIcon("zoom-plus", 20, 20); var fullScreenIcon = StatusIcon("fullscreen", 22, 20);
         Disposed += (_, _) => { infoIcon.Dispose(); zoomDownIcon.Dispose(); zoomUpIcon.Dispose(); fullScreenIcon.Dispose(); };
         var bar = new StatusStrip { Renderer = new EditorStatusRenderer(), Dock = DockStyle.None, AutoSize = false, BackColor = Color.FromArgb(232, 240, 253), SizingGrip = false, Padding = new Padding(ScaleUi(12), ScaleUi(2), ScaleUi(12), ScaleUi(2)), ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20)) };
+        EditorTitleBar titleBar = null!;
         DpiChanged += (_, _) =>
         {
             menuBar.ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20));
@@ -851,7 +852,7 @@ public sealed class MainForm : Form
         shell.Dock = DockStyle.None;
         Controls.Add(shell);
         FormBorderStyle = FormBorderStyle.None;
-        var titleBar = new EditorTitleBar(this) { Dock = DockStyle.None };
+        titleBar = new EditorTitleBar(this) { Dock = DockStyle.None };
         Controls.Add(titleBar);
         var resizeInput = new WindowResizeBorder(this);
         Disposed += (_, _) => resizeInput.Dispose();
