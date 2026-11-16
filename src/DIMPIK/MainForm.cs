@@ -1426,6 +1426,7 @@ public sealed class MainForm : Form
         {
             var parameters = base.CreateParams;
             parameters.Style |= 0x00020000 | 0x00010000; // Minimize/maximize without the native thick frame.
+            parameters.ClassStyle |= 0x00020000; // CS_DROPSHADOW: subtle native shadow around the custom frame.
             return parameters;
         }
     }
