@@ -7,6 +7,7 @@ internal sealed class EditorTitleBar : Panel
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
     private readonly Form owner;
+    private Action? refreshLayout;
     public EditorTitleBar(Form owner)
     {
         this.owner = owner;
@@ -58,8 +59,10 @@ internal sealed class EditorTitleBar : Panel
             mark.SetBounds(S(20), (Height - iconSize) / 2, iconSize, iconSize); brand.SetBounds(S(52), 0, Math.Max(0, Width - S(190)), Height);
             close.SetBounds(Width-S(46), 0, S(46), Height); maximize.SetBounds(Width-S(92), 0, S(46), Height); minimize.SetBounds(Width-S(138), 0, S(46), Height);
         }
+        refreshLayout = LayoutTitle;
         Resize += (_, _) => LayoutTitle(); DpiChangedAfterParent += (_, _) => LayoutTitle(); LayoutTitle();
     }
+    internal void RefreshLayout() => refreshLayout?.Invoke();
     internal int PreferredHeight => Math.Max(1, (int)Math.Round(32 * DeviceDpi / 96f));
     private Button Command(string text, string name, Action action)
     {

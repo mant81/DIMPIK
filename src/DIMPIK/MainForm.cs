@@ -636,7 +636,24 @@ public sealed class MainForm : Form
             menuBar.Padding = new Padding(ScaleUi(24), ScaleUi(2), 0, ScaleUi(2));
             bar.ImageScalingSize = new Size(ScaleUi(20), ScaleUi(20));
             bar.Padding = new Padding(ScaleUi(12), ScaleUi(2), ScaleUi(12), ScaleUi(2));
-            relayout?.Invoke();
+            if (IsHandleCreated) BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed) return;
+                relayout?.Invoke();
+                titleBar.RefreshLayout();
+                titleBar.BringToFront();
+                foreach (TabPage page in tabs.TabPages)
+                {
+                    if (page.Controls.OfType<CanvasViewport>().FirstOrDefault() is not { } viewport ||
+                        viewport.Controls.OfType<EditorCanvas>().FirstOrDefault() is not { } canvas) continue;
+                    viewport.PerformLayout();
+                    canvas.UpdateSize();
+                    if (canvas.Width <= viewport.ClientSize.Width && canvas.Height <= viewport.ClientSize.Height)
+                        viewport.AutoScrollPosition = Point.Empty;
+                    CenterCanvas(viewport, canvas);
+                }
+                bar.PerformLayout();
+            }));
         };
         var imageInfo = imageInfoStatus = new ToolStripStatusLabel { Image = infoIcon, DisplayStyle = ToolStripItemDisplayStyle.Image, AccessibleName = "이미지 정보" };
         var dimensionsInfo = dimensionsStatus = new ToolStripStatusLabel { TextAlign = ContentAlignment.MiddleLeft, AccessibleName = "이미지 픽셀 크기" };
@@ -846,6 +863,8 @@ public sealed class MainForm : Form
             try
             {
                 titleBar.SetBounds(0, 0, ClientSize.Width, ScaleUi(32));
+                titleBar.RefreshLayout();
+                titleBar.BringToFront();
                 shell.SetBounds(0, titleBar.Bottom, ClientSize.Width, Math.Max(0, ClientSize.Height - titleBar.Bottom));
                 LayoutShell();
             }
@@ -1025,10 +1044,7 @@ public sealed class MainForm : Form
             if (ReferenceEquals(Editor, editor))
                 Zoom(e.Delta > 0 ? 1.25f : .8f, editor.PointToClient(panel.PointToScreen(e.Location)));
         };
-        panel.Resize += (_, _) =>
-        {
-            editor.Location = new Point(Math.Max(16, (panel.ClientSize.Width - editor.Width) / 2) + panel.AutoScrollPosition.X, Math.Max(16, (panel.ClientSize.Height - editor.Height) / 2) + panel.AutoScrollPosition.Y);
-        };
+        panel.Resize += (_, _) => CenterCanvas(panel, editor);
         panel.Controls.Add(editor); page.Controls.Add(panel);
         page.Controls.Add(new CanvasRuler(editor, true) { Visible = settings.ShowRulers });
         page.Controls.Add(new CanvasRuler(editor, false) { Visible = settings.ShowRulers });
@@ -1197,9 +1213,15 @@ public sealed class MainForm : Form
         editor.UpdateSize();
         if (editor.Parent is not Panel panel) return;
         panel.AutoScrollPosition = Point.Empty;
-        int left = Math.Max(panel.Padding.Left, (panel.DisplayRectangle.Width - editor.Width) / 2);
-        int top = Math.Max(panel.Padding.Top, (panel.DisplayRectangle.Height - editor.Height) / 2);
-        editor.Location = new Point(left, top);
+        CenterCanvas(panel, editor);
+    }
+    private static void CenterCanvas(Panel panel, EditorCanvas editor)
+    {
+        // DisplayRectangle includes scroll extents; use the visible client area so an
+        // old scroll range from another resolution cannot push a fitted image aside.
+        int left = Math.Max(panel.Padding.Left, (panel.ClientSize.Width - editor.Width) / 2);
+        int top = Math.Max(panel.Padding.Top, (panel.ClientSize.Height - editor.Height) / 2);
+        editor.Location = new Point(left + panel.AutoScrollPosition.X, top + panel.AutoScrollPosition.Y);
     }
     private bool CloseTab(int index, bool confirmSave = true)
     {
