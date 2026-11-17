@@ -6,11 +6,9 @@ Windows 10/11용 화면 캡처 및 주석 편집기의 개발 기반입니다. .
 
 기존 캡처 편집기를 DIMPIK 브랜드와 새 UI 셸로 전환했습니다. C# WinForms 캡처·편집 엔진은 유지하고 상단/좌측 도구 배치, 도구 옵션 flyout, DIMPIK 로고와 탭 중심 레이아웃을 적용했습니다. SDK 10.0.403에서 Release 빌드와 Windows smoke 검사를 통과했습니다. 네이티브 트레이와 설치 프로그램도 다시 빌드했습니다.
 
-## 1.0.6 검증 (2026-11-12)
+## 1.0.8 검증 (2026-11-16)
 
-Windows / .NET SDK 10.0.403에서 Release 빌드, 기능 스모크, 네이티브 경로 보안, 트레이 대기 메모리, 편집기 재실행 중 암호화 세션 유지 및 트레이 종료 시 세션 삭제 검사를 통과했습니다. 설치 패키지 빌드는 성공했으나 관리 환경에서 시작 메뉴와 HKCU 레지스트리 쓰기가 차단되어 설치·제거 반복 검사는 완료하지 못했습니다.
-
-로그인 자동 실행 설정을 체크 즉시 적용하고, 업데이트 도움말에 홈페이지 및 문의 정보를 표시합니다. 모자이크 기본 블록 크기와 효과 안내를 개선했습니다. 실제 다중 모니터 DPI 전환, 물리 마우스의 창 이동/크기 조절 및 로그인 후 자동 실행은 아직 별도 수동 검증이 필요합니다. 배포 파일은 코드 서명되지 않았습니다.
+모니터 해상도와 배율 변경 뒤 캔버스·창 버튼·하단 상태 표시줄을 다시 배치하고, 밝은 배경에서 창 외곽을 구분할 테두리와 Windows 그림자를 적용했습니다. Release 빌드, 전체 기능·UI·보안 스모크, 네이티브 경로 보안, 암호화 세션 생명주기 및 설치 패키지 빌드는 통과했습니다. 상주 메모리 검사는 10,076,160 bytes로 10,000,000 bytes 기준을 넘었습니다. 실제 다중 모니터 DPI 전환과 설치·제거 UI는 수동 확인하지 않았으며, 설치 파일은 코드 서명되지 않았습니다. 상세 결과는 [1.0.8 검증 기록](docs/00_project/RELEASE_1.0.8.md)을 참고하세요.
 
 ## 빌드
 
@@ -24,7 +22,7 @@ dotnet build src/DIMPIK/DIMPIK.csproj -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-설치 파일: `release\setup\dimpik_inst_x64_1.0.6.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
+설치 파일: `release\setup\dimpik_inst_x64_1.0.8.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
 
 설치형은 `DIMPIK.exe`(네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
 업데이트는 설치 파일을 기존 프로그램에 덮어 설치하며, 기존 설치 폴더를 기본 경로로 사용합니다. 업데이트 전 실행 중인 DIMPIK을 종료하세요. 사용자 설정은 설치 폴더 밖에 있어 유지됩니다.
