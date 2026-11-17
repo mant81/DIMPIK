@@ -27,6 +27,6 @@
 
 ## 배포 파일
 
-- `release/setup/dimpik_inst_x64_1.0.8.exe` (36,784,396 bytes)
-- SHA-256: `9f159e5ba738e8cdda5c62c47d58ed850ca846db4cdaad87f06fb5e7cca44cff`
+- `release/setup/dimpik_inst_x64_1.0.8.exe` (36,788,087 bytes)
+- SHA-256: `5ec7d445c5e3d728e484f756fa781f7faa91151fca7dd2d5d5b6ef1bcc522a04`
 - 설치 파일 제품 버전: 1.0.8
