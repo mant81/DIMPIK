@@ -26,7 +26,7 @@ Windows에서 빠르게 영역/전체 화면을 캡처하고, 여러 장을 **�
 | 제작사 | AAStudio.kr |
 | 홈페이지 | http://www.aastudio.kr |
 | 문의 이메일 | mant@nate.com |
-| 현재 릴리즈 버전 | 1.0.10 |
+| 현재 릴리즈 버전 | 1.0.11 |
 
 | 메인 색상 | `#2563EB` |
 | 기본 배경 | `#F8FAFC` / `#FFFFFF` |
@@ -34,10 +34,10 @@ Windows에서 빠르게 영역/전체 화면을 캡처하고, 여러 장을 **�
 | 보조 텍스트 | `#64748B` |
 | 웹 경로 | /dimpik/ (설명), /dimpik/changelog/ (변경이력) |
 | 실행 파일 | `DIMPIK.exe` |
-| 설치 파일 | `dimpik_inst_x64_1.0.10.exe` |
+| 설치 파일 | `dimpik_inst_x64_1.0.11.exe` |
 | 기본 설치 폴더 | `C:\Program Files\DIMPIK` (설치 시 관리자 권한 필요) |
 | 설치 후 시작 메뉴 이름 | 딤픽 |
-| 설치 프로그램 제거 목록 이름 | 딤픽 v1.0.10 (현행) |
+| 설치 프로그램 제거 목록 이름 | 딤픽 v1.0.11 (현행) |
 | 업데이트 방식 | 기존 AppId와 설치 경로를 유지하고 현재 폴더에 파일을 묻지 않고 덮어쓴다. 실행 중인 프로세스는 종료해야 업데이트할 수 있고, 설치 후 자동 재시작하지 않는다. |
 | 라이선스 | 개인·기업·관공서 모두 무료. 업무 및 영리 목적 사용 무료. LICENSE.txt에 한국어 번역과 MIT 영문 원문을 함께 포함하며, 영문 원문이 정식 문구다. 설치 화면과 도움말은 같은 파일을 사용한다. |
 
@@ -278,7 +278,7 @@ src/DIMPIK/
 ### P0 — 먼저 통과해야 함
 
 - [ ] Windows 10/11에서 `dotnet build` 성공. 오류 0개.
-- [ ] `build-exe.cmd`로 `release\app\DIMPIK.exe`(네이티브 상주부) 및 `release\app\editor\`(편집기 EXE/DLL) 생성. `build-installer.ps1`로 `release\setup\dimpik_inst_x64_1.0.10.exe` 생성.
+- [ ] `build-exe.cmd`로 `release\app\DIMPIK.exe`(네이티브 상주부) 및 `release\app\editor\`(편집기 EXE/DLL) 생성. `build-installer.ps1`로 `release\setup\dimpik_inst_x64_1.0.11.exe` 생성.
 - [ ] EXE 더블클릭 시 정상 실행, 시작 예외 시 로그 확인 가능.
 - [ ] Print Screen 등록 충돌 시 앱 종료 없이 적절한 안내.
 - [ ] 영역 캡처 → 새 탭 → `Ctrl+C` → 외부 앱에 붙여넣기 정상.
