@@ -89,8 +89,10 @@ public sealed class MainForm : Form
         var fileProperties = new ToolStripMenuItem("이미지 속성", null, (_, _) => ShowImageProperties());
         var fileHelp = new ToolStripMenuItem("도움말", null, (_, _) => { using var dialog = new HelpForm(); dialog.ShowDialog(this); });
         var fileClose = new ToolStripMenuItem("닫기", null, (_, _) => CloseActiveTab()) { ShortcutKeyDisplayString = "Ctrl+W" };
-        fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp, new ToolStripSeparator(), fileClose]);
-        fileMenu.DropDownOpening += (_, _) => { fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null; fileClose.Enabled = tabs.TabCount > 0; };
+        var fileCloseAll = new ToolStripMenuItem("캡처 전체 닫기", null, (_, _) => CloseAllTabs());
+        var fileExit = new ToolStripMenuItem("끝내기", null, (_, _) => { exiting = true; Close(); });
+        fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp, new ToolStripSeparator(), fileClose, fileCloseAll, new ToolStripSeparator(), fileExit]);
+        fileMenu.DropDownOpening += (_, _) => { fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null; fileClose.Enabled = fileCloseAll.Enabled = tabs.TabCount > 0; };
         var editMenu = new ToolStripMenuItem("편집");
         editMenu.Margin = new Padding(0, 0, 10, 0);
         var editCut = new ToolStripMenuItem("잘라내기", null, (_, _) => CutFromMenu()) { ShortcutKeyDisplayString = "Ctrl+X" };
@@ -896,7 +898,7 @@ public sealed class MainForm : Form
         menu.Items.Add("딤픽 열기", null, (_, _) => Restore());
         menu.Items.Add("영역 캡처", null, (_, _) => _ = CaptureAsync(true));
         menu.Items.Add("전체 캡처", null, (_, _) => _ = CaptureAsync(false));
-        menu.Items.Add("종료", null, (_, _) => { exiting = true; Close(); });
+        menu.Items.Add("끝내기", null, (_, _) => { exiting = true; Close(); });
         tray = new NotifyIcon { Icon = Icon, Text = "딤픽", Visible = !managedTray, ContextMenuStrip = menu };
         tray.DoubleClick += (_, _) => Restore();
         hotkeys = new GlobalHotkeyService(Handle);
@@ -1260,6 +1262,12 @@ public sealed class MainForm : Form
         RefreshStatus(); return true;
     }
     private bool CloseActiveTab() => tabs.SelectedIndex >= 0 && CloseTab(tabs.SelectedIndex);
+    private bool CloseAllTabs()
+    {
+        while (tabs.TabCount > 0)
+            if (!CloseTab(0)) return false;
+        return true;
+    }
     private void Zoom(float factor, Point? anchor = null)
     {
         if (Editor is not { } editor || editor.Parent is not Panel panel) return;

@@ -168,14 +168,14 @@ public sealed class CaptureDocument : IDisposable
     }
     public bool ApplyPixelEffect(Rectangle region, Services.PixelEffectKind effect, int strength)
     {
-        region.Intersect(new Rectangle(Point.Empty, Image.Size));
+        region.Intersect(new Rectangle(Point.Empty, CanvasSize));
         if (region.Width < 1 || region.Height < 1) return false;
         var edit = new Annotation { Kind = AnnotationKind.PixelPatch, Bounds = region, EffectKind = effect, EffectStrength = Math.Clamp(strength, 2, 64) };
         Checkpoint(); Annotations.Add(edit); Selection = edit.Id; Changed(); return true;
     }
     public Bitmap PreviewPixelEffect(Rectangle region, Services.PixelEffectKind effect, int strength)
     {
-        region.Intersect(new Rectangle(Point.Empty, Image.Size));
+        region.Intersect(new Rectangle(Point.Empty, CanvasSize));
         if (region.Width < 1 || region.Height < 1) throw new ArgumentException("효과를 적용할 영역이 없습니다.");
         using var composed = Compose();
         return Services.PixelEffectService.Create(composed, region, effect, strength);

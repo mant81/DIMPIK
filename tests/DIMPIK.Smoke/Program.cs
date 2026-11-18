@@ -455,7 +455,7 @@ internal static class Program
                 Check(tray.Visible, "Tray icon remains after window close");
                 typeof(MainForm).GetMethod("Restore", Private)!.Invoke(form, null);
                 Check(form.Visible, "Tray restore shows window");
-                tray.ContextMenuStrip!.Items.Cast<ToolStripItem>().Single(i => i.Text == "종료").PerformClick();
+                tray.ContextMenuStrip!.Items.Cast<ToolStripItem>().Single(i => i.Text == "끝내기").PerformClick();
                 Check(form.IsDisposed, "Tray Exit disposes form with dirty tabs without save prompt");
                 Console.WriteLine($"PASS: interaction checks; three tabs; independent paste and undo; full-width canvas at 1280 and 900; DPI {form.DeviceDpi}.");
             }

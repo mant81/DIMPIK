@@ -12,9 +12,9 @@ BEGIN
     BEGIN
       VALUE "FileDescription", "DIMPIK\0"
       VALUE "CompanyName", "AAStudio.kr\0"
-      VALUE "FileVersion", "1.0.8\0"
+      VALUE "FileVersion", "1.0.10\0"
       VALUE "ProductName", "DIMPIK\0"
-      VALUE "ProductVersion", "1.0.8\0"
+      VALUE "ProductVersion", "1.0.10\0"
       VALUE "OriginalFilename", "DIMPIK.exe\0"
     END
   END

@@ -34,6 +34,7 @@ public sealed partial class EditorCanvas : Control
     private int imageHandle = -1;
     private RectangleF originalImageBounds;
     private bool imageSelected;
+    private bool imageHovered;
     private bool resizingImage;
     private bool movingImage;
     private bool imageChanged;
@@ -96,21 +97,21 @@ public sealed partial class EditorCanvas : Control
                 e.Graphics.DrawRectangle(pen, p.X - h / 2, p.Y - h / 2, h, h);
             }
         }
-        else if (imageSelected && Tool == null && PixelEffect == null && textEditor == null) PaintImageBounds(e.Graphics, true);
+        else if ((imageSelected || imageHovered) && Tool == null && PixelEffect == null && textEditor == null) PaintImageBounds(e.Graphics, true);
         e.Graphics.Restore(state);
     }
     private void PaintImageBounds(Graphics graphics, bool showHandles)
     {
         var b = Document.ImageBounds;
-        using var pen = new Pen(Color.FromArgb(100, 116, 139), 1 / Document.Zoom);
+        using var pen = new Pen(showHandles ? Color.FromArgb(37, 99, 235) : Color.FromArgb(100, 116, 139), 1 / Document.Zoom);
+        if (showHandles) pen.DashStyle = DashStyle.Dash;
         graphics.DrawRectangle(pen, b.X, b.Y, b.Width, b.Height);
         if (!showHandles) return;
-        using var handlePen = new Pen(Color.FromArgb(37, 99, 235), 1 / Document.Zoom);
         float h = 7 / Document.Zoom;
         foreach (var p in Handles(b))
         {
             graphics.FillRectangle(Brushes.White, p.X - h / 2, p.Y - h / 2, h, h);
-            graphics.DrawRectangle(handlePen, p.X - h / 2, p.Y - h / 2, h, h);
+            graphics.DrawRectangle(pen, p.X - h / 2, p.Y - h / 2, h, h);
         }
     }
     private int HitImageHandle(PointF point)
@@ -145,8 +146,9 @@ public sealed partial class EditorCanvas : Control
         if (e.Button != MouseButtons.Left) return;
         FinishTextEdit(); Focus(); start = ImagePoint(e.Location); checkpointed = false;
         if (CropMode) { BeginCropDrag(start); return; }
-        if (Tool == null && PixelEffect == null && Selected == null && imageSelected && (imageHandle = HitImageHandle(start)) >= 0)
+        if (Tool == null && PixelEffect == null && Selected == null && (imageSelected || imageHovered) && (imageHandle = HitImageHandle(start)) >= 0)
         {
+            imageSelected = true; imageHovered = false;
             originalImageBounds = Document.ImageBounds; imageChanged = false; resizingImage = true; Capture = true; Cursor = imageHandle is 0 or 4 ? Cursors.SizeNWSE : imageHandle is 2 or 6 ? Cursors.SizeNESW : imageHandle is 1 or 5 ? Cursors.SizeNS : Cursors.SizeWE; return;
         }
         if (Tool == null && PixelEffect == null && Selected == null && Document.ImageBounds.Contains(start) && !Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(start)))
@@ -191,13 +193,21 @@ public sealed partial class EditorCanvas : Control
         }
         else
         {
+            // Clicking anywhere outside the image (including blank canvas or an
+            // annotation) transfers selection away from the image.
+            imageSelected = imageHovered = false;
             handle = HitHandle(start);
             if (handle < 0) Document.Selection = Document.Annotations.LastOrDefault(a => a.IsSelectable && a.Bounds.Contains(start))?.Id;
-            if (Selected != null) imageSelected = false;
             if (Selected is { } a) { original = a.Bounds; originalFontSize = a.FontSize; }
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
         Capture = true; Invalidate();
+    }
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (Capture || !imageHovered) return;
+        imageHovered = false; Cursor = Cursors.Default; Invalidate();
     }
     protected override void OnMouseDoubleClick(MouseEventArgs e)
     {
@@ -215,8 +225,12 @@ public sealed partial class EditorCanvas : Control
         if (!Capture)
         {
             int hit = HitHandle(p);
-            int imageHit = Tool == null && PixelEffect == null && Selected == null && imageSelected ? HitImageHandle(p) : -1;
-            Cursor = Tool != null ? (Tool == AnnotationKind.Text ? Cursors.IBeam : Cursors.Cross) : hit is 0 or 4 || imageHit is 0 or 4 ? Cursors.SizeNWSE : hit is 2 or 6 || imageHit is 2 or 6 ? Cursors.SizeNESW : hit is 1 or 5 || imageHit is 1 or 5 ? Cursors.SizeNS : hit is 3 or 7 || imageHit is 3 or 7 ? Cursors.SizeWE : Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(p)) || (Tool == null && PixelEffect == null && Selected == null && imageSelected && Document.ImageBounds.Contains(p)) ? Cursors.SizeAll : Cursors.Default;
+            bool overAnnotation = Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(p));
+            bool canHoverImage = Tool == null && PixelEffect == null && Selected == null && !overAnnotation;
+            bool nextImageHovered = canHoverImage && (Document.ImageBounds.Contains(p) || HitImageHandle(p) >= 0);
+            if (imageHovered != nextImageHovered) { imageHovered = nextImageHovered; Invalidate(); }
+            int imageHit = canHoverImage && (imageSelected || imageHovered) ? HitImageHandle(p) : -1;
+            Cursor = Tool != null ? (Tool == AnnotationKind.Text ? Cursors.IBeam : Cursors.Cross) : hit is 0 or 4 || imageHit is 0 or 4 ? Cursors.SizeNWSE : hit is 2 or 6 || imageHit is 2 or 6 ? Cursors.SizeNESW : hit is 1 or 5 || imageHit is 1 or 5 ? Cursors.SizeNS : hit is 3 or 7 || imageHit is 3 or 7 ? Cursors.SizeWE : overAnnotation || (canHoverImage && (imageSelected || imageHovered) && Document.ImageBounds.Contains(p)) ? Cursors.SizeAll : Cursors.Default;
             return;
         }
         if (movingImage)

@@ -1,5 +1,10 @@
 # DIMPIK
 
+## 1.0.10 검증 (2026-11-18)
+
+이미지 hover 선택 핸들과 크기 조절, 캡처 전체 닫기 및 프로그램 끝내기를 추가했습니다. 캔버스 기준 픽셀 효과 처리를 수정했습니다. 빌드, 기능 스모크, 보안·세션 검사와 설치/제거 검증은 통과했습니다. 상주 메모리 검사는 기존 DIMPIK 트레이 인스턴스와 충돌해 시작하지 못했습니다. 설치 파일은 서명되지 않았습니다. 상세 결과와 SHA-256은 [1.0.10 검증 기록](docs/00_project/RELEASE_1.0.10.md)을 참고하세요.
+
+## 1.0.9 검증 (2026-11-18)
 ## 1.0.9 검증 (2026-11-18)
 
 캔버스와 캡처 이미지 영역을 분리했습니다. 이미지 선택 시 도형과 같은 크기 조절 핸들이 나타나고, 이미지 이동과 캔버스 밖으로의 크기 확장을 지원합니다. 격자는 이미지 바깥에만 그립니다. 빌드, 기능·UI·보안 검사와 설치/제거 스모크는 통과했습니다. 대기 메모리는 10,088,448 bytes로 10 MB 목표를 초과했고, 설치 파일은 서명되지 않았습니다. [1.0.9 검증 기록](docs/00_project/RELEASE_1.0.9.md)
@@ -26,7 +31,7 @@ dotnet build src/DIMPIK/DIMPIK.csproj -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-설치 파일: `release\setup\dimpik_inst_x64_1.0.9.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
+설치 파일: `release\setup\dimpik_inst_x64_1.0.10.exe`. Visual Studio C++ Build Tools와 Inno Setup 6 컴파일러가 필요합니다. Inno Setup 경로가 다르면 `build-installer.ps1 -Compiler "ISCC.exe의 전체 경로"`로 지정합니다.
 
 설치형은 `DIMPIK.exe`(네이티브 트레이 상주부)와 `editor\DIMPIK.exe` 및 DLL·.NET 런타임을 분리합니다. `release\app\DIMPIK.exe` 하나만 배포하지 말고 설치 파일을 전달하세요. PDB는 설치 대상에서 제외됩니다. 기본 설치 폴더는 C:\Program Files\DIMPIK이며 설치할 때 관리자 권한이 필요합니다. 자동 실행은 원래 설치를 시작한 사용자 권한으로 등록합니다.
 업데이트는 설치 파일을 기존 프로그램에 덮어 설치하며, 기존 설치 폴더를 기본 경로로 사용합니다. 업데이트 전 실행 중인 DIMPIK을 종료하세요. 사용자 설정은 설치 폴더 밖에 있어 유지됩니다.
