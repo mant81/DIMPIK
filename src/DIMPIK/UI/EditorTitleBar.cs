@@ -50,6 +50,7 @@ internal sealed class EditorTitleBar : Panel
         var maximize = Command("□", "최대화 / 복원", Maximize);
         var close = Command("×", "닫기", owner.Close);
         Controls.AddRange([brand, mark, minimize, maximize, close]);
+        close.BringToFront(); maximize.BringToFront(); minimize.BringToFront();
         void LayoutTitle() {
             // The form owns the bar height. During a DPI transition, fit its children to
             // the actual height rather than changing the height again from Resize.
@@ -57,7 +58,11 @@ internal sealed class EditorTitleBar : Panel
             int S(int value) => Math.Max(1, (int)Math.Round(value * scale));
             int iconSize = S(22);
             mark.SetBounds(S(20), (Height - iconSize) / 2, iconSize, iconSize); brand.SetBounds(S(52), 0, Math.Max(0, Width - S(190)), Height);
-            close.SetBounds(Width-S(46), 0, S(46), Height); maximize.SetBounds(Width-S(92), 0, S(46), Height); minimize.SetBounds(Width-S(138), 0, S(46), Height);
+            int buttonWidth = Math.Min(S(46), Math.Max(1, Width / 3));
+            close.SetBounds(Math.Max(0, Width - buttonWidth), 0, buttonWidth, Height);
+            maximize.SetBounds(Math.Max(0, Width - buttonWidth * 2), 0, buttonWidth, Height);
+            minimize.SetBounds(Math.Max(0, Width - buttonWidth * 3), 0, buttonWidth, Height);
+            close.BringToFront(); maximize.BringToFront(); minimize.BringToFront();
         }
         refreshLayout = LayoutTitle;
         Resize += (_, _) => LayoutTitle(); DpiChangedAfterParent += (_, _) => LayoutTitle(); LayoutTitle();

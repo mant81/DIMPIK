@@ -916,7 +916,19 @@ public sealed class MainForm : Form
                     BeginInvoke(new Action(() =>
                     {
                         for (int i = 0; i < Math.Min(tabs.TabCount, session.Scrolls.Count); i++)
-                            tabs.TabPages[i].Controls.OfType<Panel>().Single().AutoScrollPosition = session.Scrolls[i];
+                        {
+                            var page = tabs.TabPages[i];
+                            if (page.Controls.OfType<CanvasViewport>().FirstOrDefault() is not { } viewport ||
+                                viewport.Controls.OfType<EditorCanvas>().FirstOrDefault() is not { } canvas) continue;
+                            // Scroll offsets are tied to the previous viewport size. If the
+                            // restored image fits, preserve the fit/center position instead.
+                            canvas.UpdateSize();
+                            if (canvas.Width > viewport.ClientSize.Width || canvas.Height > viewport.ClientSize.Height)
+                                viewport.AutoScrollPosition = session.Scrolls[i];
+                            else
+                                viewport.AutoScrollPosition = Point.Empty;
+                            CenterCanvas(viewport, canvas);
+                        }
                         if (startupAction == "--capture-region") _ = CaptureAsync(true);
                         else if (startupAction == "--capture-full") _ = CaptureAsync(false);
                         else if (startupAction == "--settings") Configure();
@@ -1057,7 +1069,7 @@ public sealed class MainForm : Form
             if (IsDisposed || editor.IsDisposed) return;
             editor.UpdateSize();
             panel.AutoScrollPosition = Point.Empty;
-            editor.Location = new Point(Math.Max(16, (panel.ClientSize.Width - editor.Width) / 2), Math.Max(16, (panel.ClientSize.Height - editor.Height) / 2));
+            CenterCanvas(panel, editor);
             if (Editor == editor) { RefreshStatus(); editor.Focus(); }
         }));
     }
