@@ -29,7 +29,7 @@ public sealed class CaptureGallery : UserControl
             {
                 var item = new Thumbnail(document) { Width = 132, Height = 88, Margin = new Padding(4, 0, 4, 0) };
                 item.Click += (_, _) => DocumentSelected?.Invoke(document);
-                tips.SetToolTip(item, document.Name + $" · {document.Image.Width} × {document.Image.Height}"); strip.Controls.Add(item);
+                tips.SetToolTip(item, document.Name + $" · {document.CanvasSize.Width} × {document.CanvasSize.Height}"); strip.Controls.Add(item);
             }
         }
         foreach (var item in strip.Controls.OfType<Thumbnail>()) item.Update(ReferenceEquals(item.Document, selected));
@@ -58,11 +58,11 @@ public sealed class CaptureGallery : UserControl
                 try
                 {
                     using var g = Graphics.FromImage(next); g.Clear(Color.White);
-                    float scale = Math.Min(120f / Document.Image.Width, 58f / Document.Image.Height);
-                    g.TranslateTransform((120 - Document.Image.Width * scale) / 2, (58 - Document.Image.Height * scale) / 2);
+                    float scale = Math.Min(120f / Document.CanvasSize.Width, 58f / Document.CanvasSize.Height);
+                    g.TranslateTransform((120 - Document.CanvasSize.Width * scale) / 2, (58 - Document.CanvasSize.Height * scale) / 2);
                     g.ScaleTransform(scale, scale); g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     using var composed = Document.Compose();
-                    g.DrawImage(composed, 0, 0, Document.Image.Width, Document.Image.Height);
+                    g.DrawImage(composed, 0, 0, Document.CanvasSize.Width, Document.CanvasSize.Height);
                 }
                 catch { next.Dispose(); throw; }
                 thumbnail?.Dispose(); thumbnail = next; revision = Document.Revision;

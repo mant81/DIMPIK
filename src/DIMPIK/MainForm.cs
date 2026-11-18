@@ -88,9 +88,9 @@ public sealed class MainForm : Form
         var filePrint = new ToolStripMenuItem("인쇄", null, (_, _) => PrintImage());
         var fileProperties = new ToolStripMenuItem("이미지 속성", null, (_, _) => ShowImageProperties());
         var fileHelp = new ToolStripMenuItem("도움말", null, (_, _) => { using var dialog = new HelpForm(); dialog.ShowDialog(this); });
-        var fileClose = new ToolStripMenuItem("닫기", null, (_, _) => { if (tabs.SelectedIndex >= 0) CloseTab(tabs.SelectedIndex); }) { ShortcutKeyDisplayString = "Ctrl+W" };
+        var fileClose = new ToolStripMenuItem("닫기", null, (_, _) => CloseActiveTab()) { ShortcutKeyDisplayString = "Ctrl+W" };
         fileMenu.DropDownItems.AddRange([fileOpen, new ToolStripSeparator(), fileSave, filePrint, fileProperties, new ToolStripSeparator(), fileHelp, new ToolStripSeparator(), fileClose]);
-        fileMenu.DropDownOpening += (_, _) => { fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null; fileClose.Enabled = true; };
+        fileMenu.DropDownOpening += (_, _) => { fileSave.Enabled = filePrint.Enabled = fileProperties.Enabled = Editor != null; fileClose.Enabled = tabs.TabCount > 0; };
         var editMenu = new ToolStripMenuItem("편집");
         editMenu.Margin = new Padding(0, 0, 10, 0);
         var editCut = new ToolStripMenuItem("잘라내기", null, (_, _) => CutFromMenu()) { ShortcutKeyDisplayString = "Ctrl+X" };
@@ -1121,7 +1121,7 @@ public sealed class MainForm : Form
     {
         if (Editor is not { } editor) return;
         var document = editor.Document;
-        MessageBox.Show(this, $"이름: {document.Name}\n크기: {document.Image.Width} × {document.Image.Height} px", "이미지 속성", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, $"이름: {document.Name}\n크기: {document.CanvasSize.Width} × {document.CanvasSize.Height} px", "이미지 속성", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void CutFromMenu() => Guard(() =>
@@ -1173,17 +1173,17 @@ public sealed class MainForm : Form
     private void Undo()
     {
         if (Editor is not { } editor) return;
-        editor.FinishTextEdit(); editor.CancelCrop(); var oldSize = editor.Document.Image.Size;
+        editor.FinishTextEdit(); editor.CancelCrop(); var oldSize = editor.Document.CanvasSize;
         editor.Document.Undo();
-        if (editor.Document.Image.Size != oldSize) ResetCanvasViewport(editor);
+        if (editor.Document.CanvasSize != oldSize) ResetCanvasViewport(editor);
         editor.Invalidate(); RefreshStatus();
     }
     private void Redo()
     {
         if (Editor is not { } editor) return;
-        editor.FinishTextEdit(); editor.CancelCrop(); var oldSize = editor.Document.Image.Size;
+        editor.FinishTextEdit(); editor.CancelCrop(); var oldSize = editor.Document.CanvasSize;
         editor.Document.Redo();
-        if (editor.Document.Image.Size != oldSize) ResetCanvasViewport(editor);
+        if (editor.Document.CanvasSize != oldSize) ResetCanvasViewport(editor);
         editor.Invalidate(); RefreshStatus();
     }
     private void ApplyCrop()
@@ -1206,20 +1206,29 @@ public sealed class MainForm : Form
     private void ResizeImage()
     {
         if (Editor is not { } editor) return;
-        using var dialog = new Form { Text = "이미지 크기 조절", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(300, 168), MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false };
-        var original = editor.Document.Image.Size;
+        using var dialog = new Form { Text = "캔버스 / 이미지 크기 조절", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(320, 200), MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false };
+        var original = editor.Document.CanvasSize;
         var widthInput = new NumericUpDown { Minimum = 1, Maximum = 32768, Value = original.Width, Location = new Point(105, 18), Width = 150 };
         var heightInput = new NumericUpDown { Minimum = 1, Maximum = 32768, Value = original.Height, Location = new Point(105, 52), Width = 150 };
-        var keepRatio = new CheckBox { Text = "가로세로 비율 유지", Checked = true, AutoSize = true, Location = new Point(18, 87) };
+        var canvasMode = new CheckBox { Text = "캔버스만 조절 (이미지 크기 유지)", AutoSize = true, Location = new Point(18, 84) };
+        var keepRatio = new CheckBox { Text = "이미지 비율 유지", Checked = false, AutoSize = true, Location = new Point(18, 108) };
+        canvasMode.CheckedChanged += (_, _) => keepRatio.Enabled = !canvasMode.Checked;
         bool updating = false;
         widthInput.ValueChanged += (_, _) => { if (!updating && keepRatio.Checked) { updating = true; heightInput.Value = Math.Clamp(Math.Round(widthInput.Value * original.Height / original.Width), 1, 32768); updating = false; } };
         heightInput.ValueChanged += (_, _) => { if (!updating && keepRatio.Checked) { updating = true; widthInput.Value = Math.Clamp(Math.Round(heightInput.Value * original.Width / original.Height), 1, 32768); updating = false; } };
-        var apply = new Button { Text = "적용", DialogResult = DialogResult.OK, Location = new Point(133, 126), Size = new Size(72, 28) };
-        var cancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Location = new Point(211, 126), Size = new Size(72, 28) };
-        dialog.Controls.AddRange([new Label { Text = "너비 (px)", AutoSize = true, Location = new Point(18, 21) }, new Label { Text = "높이 (px)", AutoSize = true, Location = new Point(18, 55) }, widthInput, heightInput, keepRatio, apply, cancel]);
+        var apply = new Button { Text = "적용", DialogResult = DialogResult.OK, Location = new Point(151, 156), Size = new Size(72, 28) };
+        var cancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Location = new Point(229, 156), Size = new Size(72, 28) };
+        dialog.Controls.AddRange([new Label { Text = "너비 (px)", AutoSize = true, Location = new Point(18, 21) }, new Label { Text = "높이 (px)", AutoSize = true, Location = new Point(18, 55) }, widthInput, heightInput, canvasMode, keepRatio, apply, cancel]);
         dialog.AcceptButton = apply; dialog.CancelButton = cancel;
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        Guard(() => { editor.FinishTextEdit(); editor.CancelCrop(); if (editor.Document.ResizeImage(new Size((int)widthInput.Value, (int)heightInput.Value))) { ResetCanvasViewport(editor); RefreshStatus(); } });
+        Guard(() =>
+        {
+            editor.FinishTextEdit(); editor.CancelCrop();
+            bool changed = canvasMode.Checked
+                ? editor.Document.ResizeCanvas(new Size((int)widthInput.Value, (int)heightInput.Value))
+                : editor.Document.ResizeImage(new Size((int)widthInput.Value, (int)heightInput.Value));
+            if (changed) { ResetCanvasViewport(editor); editor.NotifyEdit(); RefreshStatus(); }
+        });
     }
     private static void ResetCanvasViewport(EditorCanvas editor)
     {
@@ -1238,6 +1247,7 @@ public sealed class MainForm : Form
     }
     private bool CloseTab(int index, bool confirmSave = true)
     {
+        if (index < 0 || index >= tabs.TabPages.Count) return false;
         tabs.SelectedIndex = index; var page = tabs.TabPages[index]; var document = Document(page);
         if (confirmSave && document.Dirty)
         {
@@ -1249,6 +1259,7 @@ public sealed class MainForm : Form
         relayout?.Invoke();
         RefreshStatus(); return true;
     }
+    private bool CloseActiveTab() => tabs.SelectedIndex >= 0 && CloseTab(tabs.SelectedIndex);
     private void Zoom(float factor, Point? anchor = null)
     {
         if (Editor is not { } editor || editor.Parent is not Panel panel) return;
@@ -1284,7 +1295,7 @@ public sealed class MainForm : Form
         if (Editor is not { } editor || editor.Parent is not Panel panel) return;
         float availableWidth = Math.Max(1, panel.ClientSize.Width - panel.Padding.Horizontal);
         float availableHeight = Math.Max(1, panel.ClientSize.Height - panel.Padding.Vertical);
-        editor.Document.Zoom = Math.Clamp(Math.Min(1f, Math.Min(availableWidth / editor.Document.Image.Width, availableHeight / editor.Document.Image.Height)), .05f, 1);
+        editor.Document.Zoom = Math.Clamp(Math.Min(1f, Math.Min(availableWidth / editor.Document.CanvasSize.Width, availableHeight / editor.Document.CanvasSize.Height)), .05f, 1);
         ResetCanvasViewport(editor);
         RefreshStatus();
     }
@@ -1296,7 +1307,7 @@ public sealed class MainForm : Form
         imageInfoStatus!.Visible = dimensionsStatus!.Visible = imageMetadataSeparator!.Visible = fileSizeStatus!.Visible = hasDocument;
         if (Editor is { } e)
         {
-            dimensionsStatus.Text = $"{e.Document.Image.Width} × {e.Document.Image.Height} px";
+            dimensionsStatus.Text = $"{e.Document.CanvasSize.Width} × {e.Document.CanvasSize.Height} px";
             fileSizeStatus.Text = $"파일 크기: {FormatFileSize(GetPngByteSize(e.Document))}";
             status.Text = string.Empty;
         }
@@ -1536,7 +1547,7 @@ public sealed class MainForm : Form
             case Keys.Control | Keys.S: Save(); return true;
             case Keys.Control | Keys.Z: Undo(); return true;
             case Keys.Control | Keys.Y: Redo(); return true;
-            case Keys.Control | Keys.W: if (tabs.SelectedIndex >= 0) CloseTab(tabs.SelectedIndex); return true;
+            case Keys.Control | Keys.W: CloseActiveTab(); return true;
             case Keys.Control | Keys.Tab: if (tabs.TabCount > 0) tabs.SelectedIndex = (tabs.SelectedIndex + 1) % tabs.TabCount; return true;
             case Keys.Control | Keys.D0: Fit(); return true;
             case Keys.Control | Keys.D: Editor?.DuplicateSelection(); return true;

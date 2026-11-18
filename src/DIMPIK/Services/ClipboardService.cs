@@ -8,7 +8,7 @@ public sealed class ClipboardService
     private Size sourceSize;
     public bool CopyRegion(CaptureDocument document, Rectangle region)
     {
-        region.Intersect(new Rectangle(Point.Empty, document.Image.Size));
+        region.Intersect(new Rectangle(Point.Empty, document.CanvasSize));
         if (region.Width < 1 || region.Height < 1) return false;
         using var composed = document.Compose();
         using var image = composed.Clone(region, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -26,11 +26,11 @@ public sealed class ClipboardService
         ImageSafety.CheckSize(image.Size);
         using var stream = new MemoryStream();
         image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-        float scale = Math.Min(1f, Math.Min((float)document.Image.Width / image.Width, (float)document.Image.Height / image.Height));
+        float scale = Math.Min(1f, Math.Min((float)document.CanvasSize.Width / image.Width, (float)document.CanvasSize.Height / image.Height));
         var width = Math.Max(1, image.Width * scale);
         var height = Math.Max(1, image.Height * scale);
         var annotation = new Annotation { Kind = AnnotationKind.Image, ImageData = Convert.ToBase64String(stream.ToArray()),
-            Bounds = new((document.Image.Width - width) / 2, (document.Image.Height - height) / 2, width, height) };
+            Bounds = new((document.CanvasSize.Width - width) / 2, (document.CanvasSize.Height - height) / 2, width, height) };
         document.Checkpoint(); document.Annotations.Add(annotation); document.Selection = annotation.Id; document.Changed();
         return true;
     }
@@ -42,20 +42,20 @@ public sealed class ClipboardService
     public void CopyAnnotations(CaptureDocument document, bool selectedOnly)
     {
         buffer = document.Annotations.Where(a => a.IsSelectable && (!selectedOnly || a.Id == document.Selection)).Select(a => a.Copy()).ToList();
-        sourceSize = document.Image.Size;
+        sourceSize = document.CanvasSize;
     }
     public void Paste(CaptureDocument document, bool selectPasted = false, float offset = 0)
     {
         if (buffer.Count == 0) return;
         document.Checkpoint();
-        float sx = (float)document.Image.Width / sourceSize.Width, sy = (float)document.Image.Height / sourceSize.Height;
+        float sx = (float)document.CanvasSize.Width / sourceSize.Width, sy = (float)document.CanvasSize.Height / sourceSize.Height;
         foreach (var item in buffer)
         {
             var a = item.Copy(true);
             var b = a.Bounds;
-            var width = Math.Clamp(b.Width * sx, 1, document.Image.Width);
-            var height = Math.Clamp(b.Height * sy, 1, document.Image.Height);
-            a.Bounds = new(Math.Clamp(b.X * sx + offset, 0, document.Image.Width - width), Math.Clamp(b.Y * sy + offset, 0, document.Image.Height - height), width, height);
+            var width = Math.Clamp(b.Width * sx, 1, document.CanvasSize.Width);
+            var height = Math.Clamp(b.Height * sy, 1, document.CanvasSize.Height);
+            a.Bounds = new(Math.Clamp(b.X * sx + offset, 0, document.CanvasSize.Width - width), Math.Clamp(b.Y * sy + offset, 0, document.CanvasSize.Height - height), width, height);
             a.FontSize = Math.Clamp(a.FontSize * Math.Min(sx, sy), 8, 144);
             a.Width = Math.Max(1, a.Width * Math.Min(sx, sy));
             document.Annotations.Add(a);

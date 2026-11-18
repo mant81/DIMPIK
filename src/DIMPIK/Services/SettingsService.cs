@@ -10,7 +10,7 @@ public sealed class AppSettings
     public bool NewCaptureSelectRegion { get; set; } = true;
     public bool ShowGallery { get; set; }
     public bool ShowRulers { get; set; }
-    public bool ShowGrid { get; set; }
+    public bool ShowGrid { get; set; } = true;
     public bool ShowStatusBar { get; set; } = true;
     public bool ShowToolbar { get; set; } = true;
     public string ToolbarPosition { get; set; } = "Top";

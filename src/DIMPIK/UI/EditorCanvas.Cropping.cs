@@ -76,7 +76,7 @@ public sealed partial class EditorCanvas
         if (cropHandle == -2)
             CropBounds = Rectangle.FromLTRB(Math.Min(sx, x), Math.Min(sy, y), Math.Max(sx, x), Math.Max(sy, y));
         else if (cropHandle == -1)
-            CropBounds = new(Math.Clamp(cropOriginal.X + x - sx, 0, Document.Image.Width - cropOriginal.Width), Math.Clamp(cropOriginal.Y + y - sy, 0, Document.Image.Height - cropOriginal.Height), cropOriginal.Width, cropOriginal.Height);
+            CropBounds = new(Math.Clamp(cropOriginal.X + x - sx, 0, Document.CanvasSize.Width - cropOriginal.Width), Math.Clamp(cropOriginal.Y + y - sy, 0, Document.CanvasSize.Height - cropOriginal.Height), cropOriginal.Width, cropOriginal.Height);
         else
         {
             int l = cropOriginal.Left, r = cropOriginal.Right, t = cropOriginal.Top, b = cropOriginal.Bottom;
@@ -86,13 +86,13 @@ public sealed partial class EditorCanvas
             if (cropHandle is 4 or 5 or 6) b = Math.Max(y, t + 1);
             CropBounds = Rectangle.FromLTRB(l, t, r, b);
         }
-        CropBounds = Rectangle.Intersect(new Rectangle(Point.Empty, Document.Image.Size), CropBounds);
+        CropBounds = Rectangle.Intersect(new Rectangle(Point.Empty, Document.CanvasSize), CropBounds);
         SelectionChanged?.Invoke(this, EventArgs.Empty); Invalidate();
     }
     private void PaintCrop(Graphics g)
     {
         var b = CropBounds;
-        using var shaded = new Region(new Rectangle(Point.Empty, Document.Image.Size));
+        using var shaded = new Region(new Rectangle(Point.Empty, Document.CanvasSize));
         if (CanApplyCrop) shaded.Exclude(b);
         using var shade = new SolidBrush(Color.FromArgb(100, 15, 23, 42)); g.FillRegion(shade, shaded);
         if (!CanApplyCrop) return;

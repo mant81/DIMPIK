@@ -181,6 +181,13 @@ public static class SessionService
                 !ValidNumber(doc.Zoom, .01f, 16) || doc.Undo == null || doc.Undo.Count > MaxUndo || doc.Redo?.Count > MaxUndo ||
                 (doc.SavePath != null && (doc.SavePath.Length > 32767 || doc.SavePath.Contains('\0') || !Path.IsPathFullyQualified(doc.SavePath))))
                 throw new InvalidDataException("세션 문서 값이 올바르지 않습니다.");
+            if ((doc.CanvasWidth == 0) != (doc.CanvasHeight == 0) || doc.CanvasWidth < 0 || doc.CanvasHeight < 0)
+                throw new InvalidDataException("Invalid canvas dimensions.");
+            if (doc.CanvasWidth > 0) ImageSafety.CheckSize(new Size(doc.CanvasWidth, doc.CanvasHeight));
+            if (doc.ImageBounds is { } ib &&
+                (!ValidNumber(ib.X, -1_000_000, 1_000_000) || !ValidNumber(ib.Y, -1_000_000, 1_000_000) ||
+                 !ValidNumber(ib.Width, 1, 1_000_000) || !ValidNumber(ib.Height, 1, 1_000_000)))
+                throw new InvalidDataException("Invalid image bounds.");
             Image(doc.Image); Annotations(doc.Annotations);
             foreach (var undo in doc.Undo)
             {

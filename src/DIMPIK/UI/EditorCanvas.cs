@@ -31,6 +31,12 @@ public sealed partial class EditorCanvas : Control
     private RectangleF original;
     private float originalFontSize;
     private int handle = -1;
+    private int imageHandle = -1;
+    private RectangleF originalImageBounds;
+    private bool imageSelected;
+    private bool resizingImage;
+    private bool movingImage;
+    private bool imageChanged;
     private bool checkpointed;
     private TextBox? textEditor;
     private Annotation? editingAnnotation;
@@ -40,16 +46,17 @@ public sealed partial class EditorCanvas : Control
 
     public EditorCanvas(CaptureDocument document)
     {
-        Document = document; DoubleBuffered = true; TabStop = true; BackColor = Color.White;
+        Document = document; DoubleBuffered = true; TabStop = true; BackColor = Color.FromArgb(241, 245, 249);
         UpdateSize();
     }
     public void UpdateSize()
     {
         FinishTextEdit();
-        Size = new Size(Math.Max(1, (int)Math.Round(Document.Image.Width * Document.Zoom)), Math.Max(1, (int)Math.Round(Document.Image.Height * Document.Zoom)));
+        Size = new Size(Math.Max(1, (int)Math.Round(Document.CanvasSize.Width * Document.Zoom)), Math.Max(1, (int)Math.Round(Document.CanvasSize.Height * Document.Zoom)));
         Invalidate();
     }
-    private PointF ImagePoint(Point p) => new(Math.Clamp(p.X / Document.Zoom, 0, Document.Image.Width), Math.Clamp(p.Y / Document.Zoom, 0, Document.Image.Height));
+    private PointF ImagePoint(Point p) => new(Math.Clamp(p.X / Document.Zoom, 0, Document.CanvasSize.Width), Math.Clamp(p.Y / Document.Zoom, 0, Document.CanvasSize.Height));
+    private PointF UnclippedCanvasPoint(Point p) => new(p.X / Document.Zoom, p.Y / Document.Zoom);
     private static PointF[] Handles(RectangleF b) => [new(b.Left, b.Top), new(b.Left + b.Width / 2, b.Top), new(b.Right, b.Top), new(b.Right, b.Top + b.Height / 2), new(b.Right, b.Bottom), new(b.Left + b.Width / 2, b.Bottom), new(b.Left, b.Bottom), new(b.Left, b.Top + b.Height / 2)];
     private int HitHandle(PointF p)
     {
@@ -65,7 +72,8 @@ public sealed partial class EditorCanvas : Control
         var state = e.Graphics.Save();
         e.Graphics.ScaleTransform(Document.Zoom, Document.Zoom);
         using var composed = Document.Compose(editingAnnotation);
-        e.Graphics.DrawImage(composed, 0, 0, Document.Image.Width, Document.Image.Height);
+        e.Graphics.DrawImage(composed, 0, 0, Document.CanvasSize.Width, Document.CanvasSize.Height);
+        PaintImageBounds(e.Graphics, false);
         draft?.Draw(e.Graphics);
         if (draft?.EffectKind != null)
         {
@@ -88,18 +96,48 @@ public sealed partial class EditorCanvas : Control
                 e.Graphics.DrawRectangle(pen, p.X - h / 2, p.Y - h / 2, h, h);
             }
         }
+        else if (imageSelected && Tool == null && PixelEffect == null && textEditor == null) PaintImageBounds(e.Graphics, true);
         e.Graphics.Restore(state);
+    }
+    private void PaintImageBounds(Graphics graphics, bool showHandles)
+    {
+        var b = Document.ImageBounds;
+        using var pen = new Pen(Color.FromArgb(100, 116, 139), 1 / Document.Zoom);
+        graphics.DrawRectangle(pen, b.X, b.Y, b.Width, b.Height);
+        if (!showHandles) return;
+        using var handlePen = new Pen(Color.FromArgb(37, 99, 235), 1 / Document.Zoom);
+        float h = 7 / Document.Zoom;
+        foreach (var p in Handles(b))
+        {
+            graphics.FillRectangle(Brushes.White, p.X - h / 2, p.Y - h / 2, h, h);
+            graphics.DrawRectangle(handlePen, p.X - h / 2, p.Y - h / 2, h, h);
+        }
+    }
+    private int HitImageHandle(PointF point)
+    {
+        var handles = Handles(Document.ImageBounds);
+        for (int i = 0; i < handles.Length; i++)
+            if (Math.Abs(handles[i].X - point.X) <= 6 / Document.Zoom && Math.Abs(handles[i].Y - point.Y) <= 6 / Document.Zoom) return i;
+        return -1;
     }
     private void DrawGrid(Graphics graphics)
     {
         float spacing = 10;
         while (spacing * Document.Zoom < 12) spacing *= 2;
-        var bounds = RectangleF.Intersect(graphics.VisibleClipBounds, new RectangleF(0, 0, Document.Image.Width, Document.Image.Height));
+        var bounds = RectangleF.Intersect(graphics.VisibleClipBounds, new RectangleF(0, 0, Document.CanvasSize.Width, Document.CanvasSize.Height));
+        if (bounds.Width <= 0 || bounds.Height <= 0) return;
+        var state = graphics.Save();
+        using (var workspace = new Region(new RectangleF(0, 0, Document.CanvasSize.Width, Document.CanvasSize.Height)))
+        {
+            workspace.Exclude(Document.ImageBounds);
+            graphics.SetClip(workspace, CombineMode.Intersect);
+        }
         using var pen = new Pen(Color.FromArgb(55, 71, 85, 105), 1 / Document.Zoom);
         for (float x = (float)Math.Ceiling(bounds.Left / spacing) * spacing; x <= bounds.Right; x += spacing)
             graphics.DrawLine(pen, x, bounds.Top, x, bounds.Bottom);
         for (float y = (float)Math.Ceiling(bounds.Top / spacing) * spacing; y <= bounds.Bottom; y += spacing)
             graphics.DrawLine(pen, bounds.Left, y, bounds.Right, y);
+        graphics.Restore(state);
     }
     protected override void OnMouseDown(MouseEventArgs e)
     {
@@ -107,9 +145,18 @@ public sealed partial class EditorCanvas : Control
         if (e.Button != MouseButtons.Left) return;
         FinishTextEdit(); Focus(); start = ImagePoint(e.Location); checkpointed = false;
         if (CropMode) { BeginCropDrag(start); return; }
+        if (Tool == null && PixelEffect == null && Selected == null && imageSelected && (imageHandle = HitImageHandle(start)) >= 0)
+        {
+            originalImageBounds = Document.ImageBounds; imageChanged = false; resizingImage = true; Capture = true; Cursor = imageHandle is 0 or 4 ? Cursors.SizeNWSE : imageHandle is 2 or 6 ? Cursors.SizeNESW : imageHandle is 1 or 5 ? Cursors.SizeNS : Cursors.SizeWE; return;
+        }
+        if (Tool == null && PixelEffect == null && Selected == null && Document.ImageBounds.Contains(start) && !Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(start)))
+        {
+            Document.Selection = null; imageSelected = true;
+            originalImageBounds = Document.ImageBounds; imageChanged = false; movingImage = true; Capture = true; Cursor = Cursors.SizeAll; return;
+        }
         if (PixelEffect is { } effect)
         {
-            Document.Selection = null;
+            Document.Selection = null; imageSelected = false;
             draft = new Annotation { Kind = AnnotationKind.PixelPatch, EffectKind = effect, EffectStrength = EffectStrength, Bounds = new(start.X, start.Y, 1, 1) };
             Capture = true; Invalidate(); return;
         }
@@ -124,19 +171,19 @@ public sealed partial class EditorCanvas : Control
         }
         if (Tool is { } kind)
         {
-            Document.Selection = null;
+            Document.Selection = null; imageSelected = false;
             draft = new Annotation { Kind = kind, Color = Ink, FillColor = FillColor, Width = Stroke, Filled = Filled, Dashed = Dashed, FontSize = TextSize, Bold = Bold, Bounds = new(start.X, start.Y, 1, 1) };
             if (kind == AnnotationKind.Pen) penPoints = [start];
             if (kind == AnnotationKind.Text)
             {
-                draft.Bounds = new(start.X, start.Y, Math.Min(320, Document.Image.Width - start.X), Math.Min(100, Document.Image.Height - start.Y));
+                draft.Bounds = new(start.X, start.Y, Math.Min(320, Document.CanvasSize.Width - start.X), Math.Min(100, Document.CanvasSize.Height - start.Y));
                 var a = draft; draft = null; BeginTextEdit(a, true); return;
             }
             if (kind == AnnotationKind.Number)
             {
                 draft.Text = Math.Min(9999L, Document.Annotations.Where(a => a.Kind == AnnotationKind.Number).Select(a => int.TryParse(a.Text, out var n) ? (long)n : 0).DefaultIfEmpty().Max() + 1).ToString();
-                float size = Math.Min(36, Math.Min(Document.Image.Width, Document.Image.Height));
-                draft.Bounds = new(Math.Min(start.X, Document.Image.Width - size), Math.Min(start.Y, Document.Image.Height - size), size, size);
+                float size = Math.Min(36, Math.Min(Document.CanvasSize.Width, Document.CanvasSize.Height));
+                draft.Bounds = new(Math.Min(start.X, Document.CanvasSize.Width - size), Math.Min(start.Y, Document.CanvasSize.Height - size), size, size);
                 // WinForms captures the mouse before MouseDown; a stamp must not enter the drag path.
                 Capture = false;
                 CommitDraft(); return;
@@ -146,6 +193,7 @@ public sealed partial class EditorCanvas : Control
         {
             handle = HitHandle(start);
             if (handle < 0) Document.Selection = Document.Annotations.LastOrDefault(a => a.IsSelectable && a.Bounds.Contains(start))?.Id;
+            if (Selected != null) imageSelected = false;
             if (Selected is { } a) { original = a.Bounds; originalFontSize = a.FontSize; }
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -167,8 +215,28 @@ public sealed partial class EditorCanvas : Control
         if (!Capture)
         {
             int hit = HitHandle(p);
-            Cursor = Tool != null ? (Tool == AnnotationKind.Text ? Cursors.IBeam : Cursors.Cross) : hit is 0 or 4 ? Cursors.SizeNWSE : hit is 2 or 6 ? Cursors.SizeNESW : hit is 1 or 5 ? Cursors.SizeNS : hit is 3 or 7 ? Cursors.SizeWE : Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(p)) ? Cursors.SizeAll : Cursors.Default;
+            int imageHit = Tool == null && PixelEffect == null && Selected == null && imageSelected ? HitImageHandle(p) : -1;
+            Cursor = Tool != null ? (Tool == AnnotationKind.Text ? Cursors.IBeam : Cursors.Cross) : hit is 0 or 4 || imageHit is 0 or 4 ? Cursors.SizeNWSE : hit is 2 or 6 || imageHit is 2 or 6 ? Cursors.SizeNESW : hit is 1 or 5 || imageHit is 1 or 5 ? Cursors.SizeNS : hit is 3 or 7 || imageHit is 3 or 7 ? Cursors.SizeWE : Document.Annotations.Any(a => a.IsSelectable && a.Bounds.Contains(p)) || (Tool == null && PixelEffect == null && Selected == null && imageSelected && Document.ImageBounds.Contains(p)) ? Cursors.SizeAll : Cursors.Default;
             return;
+        }
+        if (movingImage)
+        {
+            p = UnclippedCanvasPoint(e.Location);
+            var next = new RectangleF(
+                originalImageBounds.X + p.X - start.X,
+                originalImageBounds.Y + p.Y - start.Y,
+                originalImageBounds.Width, originalImageBounds.Height);
+            imageChanged |= Document.SetImageBounds(next, checkpoint: !imageChanged); Invalidate(); return;
+        }
+        if (resizingImage)
+        {
+            p = UnclippedCanvasPoint(e.Location);
+            float l = originalImageBounds.Left, r = originalImageBounds.Right, t = originalImageBounds.Top, b = originalImageBounds.Bottom;
+            if (imageHandle is 0 or 6 or 7) l = Math.Min(p.X, r - 1);
+            if (imageHandle is 2 or 3 or 4) r = Math.Max(p.X, l + 1);
+            if (imageHandle is 0 or 1 or 2) t = Math.Min(p.Y, b - 1);
+            if (imageHandle is 4 or 5 or 6) b = Math.Max(p.Y, t + 1);
+            imageChanged |= Document.SetImageBounds(RectangleF.FromLTRB(l, t, r, b), checkpoint: !imageChanged); Invalidate(); return;
         }
         if (draft != null)
         {
@@ -193,7 +261,7 @@ public sealed partial class EditorCanvas : Control
                 if (handle is 4 or 5 or 6) b = Math.Max(p.Y, t + 1);
                 next = RectangleF.FromLTRB(l, t, r, b);
             }
-            else next = new(Math.Clamp(original.X + p.X - start.X, 0, Math.Max(0, Document.Image.Width - original.Width)), Math.Clamp(original.Y + p.Y - start.Y, 0, Math.Max(0, Document.Image.Height - original.Height)), original.Width, original.Height);
+            else next = new(Math.Clamp(original.X + p.X - start.X, 0, Math.Max(0, Document.CanvasSize.Width - original.Width)), Math.Clamp(original.Y + p.Y - start.Y, 0, Math.Max(0, Document.CanvasSize.Height - original.Height)), original.Width, original.Height);
             if (next != a.Bounds)
             {
                 if (!checkpointed) { Document.Checkpoint(); checkpointed = true; }
@@ -212,6 +280,14 @@ public sealed partial class EditorCanvas : Control
     {
         base.OnMouseUp(e);
         if (!Capture || e.Button != MouseButtons.Left) return;
+        if (movingImage)
+        {
+            movingImage = false; Capture = false; if (imageChanged) { Document.Changed(); NotifyEdit(); } Cursor = Cursors.Default; return;
+        }
+        if (resizingImage)
+        {
+            resizingImage = false; Capture = false; if (imageChanged) { Document.Changed(); NotifyEdit(); } Cursor = Cursors.Default; return;
+        }
         if (CropMode)
         {
             MoveCropPointer(ImagePoint(e.Location)); Capture = false;
@@ -275,7 +351,7 @@ public sealed partial class EditorCanvas : Control
             using var measureFont = new Font("Segoe UI", a.FontSize, a.Bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel);
             using var g = CreateGraphics();
             var measured = g.MeasureString(text, measureFont, Math.Max(1, (int)a.Bounds.Width), StringFormat.GenericTypographic);
-            a.Bounds = new(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, Math.Min(Document.Image.Height - a.Bounds.Y, Math.Max(a.Bounds.Height, measured.Height + 8)));
+            a.Bounds = new(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, Math.Min(Document.CanvasSize.Height - a.Bounds.Y, Math.Max(a.Bounds.Height, measured.Height + 8)));
             if (editingNew) Document.Annotations.Add(a);
             Document.Selection = a.Id; Tool = null; NotifyEdit();
         }
@@ -327,7 +403,7 @@ public sealed partial class EditorCanvas : Control
         FinishTextEdit();
         if (Selected is not { } a) return;
         Document.Checkpoint(); var copy = a.Copy(true); var b = copy.Bounds;
-        copy.Bounds = new(Math.Min(b.X + 16, Math.Max(0, Document.Image.Width - b.Width)), Math.Min(b.Y + 16, Math.Max(0, Document.Image.Height - b.Height)), b.Width, b.Height);
+        copy.Bounds = new(Math.Min(b.X + 16, Math.Max(0, Document.CanvasSize.Width - b.Width)), Math.Min(b.Y + 16, Math.Max(0, Document.CanvasSize.Height - b.Height)), b.Width, b.Height);
         Document.Annotations.Add(copy); Document.Selection = copy.Id; NotifyEdit();
     }
     public void NotifyEdit() { Document.Changed(); Invalidate(); Edited?.Invoke(this, EventArgs.Empty); }
@@ -340,8 +416,8 @@ public sealed partial class EditorCanvas : Control
         float scale = size / Math.Max(1, text.FontSize);
         var bounds = text.Bounds;
         text.Bounds = new RectangleF(bounds.X, bounds.Y,
-            Math.Clamp(bounds.Width * scale, 1, Math.Max(1, Document.Image.Width - bounds.X)),
-            Math.Clamp(bounds.Height * scale, 1, Math.Max(1, Document.Image.Height - bounds.Y)));
+            Math.Clamp(bounds.Width * scale, 1, Math.Max(1, Document.CanvasSize.Width - bounds.X)),
+            Math.Clamp(bounds.Height * scale, 1, Math.Max(1, Document.CanvasSize.Height - bounds.Y)));
         text.FontSize = size;
         NotifyEdit();
     }

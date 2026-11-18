@@ -37,7 +37,7 @@ public sealed class CanvasRuler : Control
         float zoom = editor.Document.Zoom, origin = ImageOrigin;
         int length = Vertical ? Height : Width;
         int thickness = Vertical ? Width : Height;
-        int imageLength = Vertical ? editor.Document.Image.Height : editor.Document.Image.Width;
+        int imageLength = Vertical ? editor.Document.CanvasSize.Height : editor.Document.CanvasSize.Width;
         float desired = 65f * DeviceDpi / 96 / zoom;
         float power = MathF.Pow(10, MathF.Floor(MathF.Log10(desired)));
         float major = new[] { 1f, 2f, 5f, 10f }.First(n => n * power >= desired) * power;
